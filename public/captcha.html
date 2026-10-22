@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Burrow</title>
+    <link rel="icon" type="image/png" href="/logo-square.png">
+    <style>
+      /* the captcha alone, in a small window the client opens over its login
+         screen (its app/main.js); the answer goes back through that
+         window's preload. */
+      @font-face { font-family: "DigitalDelivery"; font-weight: 400; src: url("/fonts/CCDigitalDelivery-Regular.otf") format("opentype"); }
+      :root { color-scheme: dark; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #000;
+        color: #8c8c8c;
+        font: 14px/1.4 "DigitalDelivery", system-ui, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #status { margin: 0; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div id="widget"></div>
+    <p id="status" role="status">Checking…</p>
+    <script src="/captcha.js"></script>
+    <script>
+      "use strict";
+
+      const action = new URLSearchParams(location.search).get("action") === "signup" ? "signup" : "login";
+      const status = document.getElementById("status");
+      const done = token => {
+        if (window.burrowCaptcha) {
+          window.burrowCaptcha.done(token);
+        }
+      };
+      if (!window.captcha.on) {
+        status.textContent = "No captcha needed.";
+        done("");
+      }
+      else {
+        // cloudflare may try again after an error, and an answer can still come.
+        const check = window.captcha.mount(document.getElementById("widget"), action, {appearance: "always", onAnswer: token => {
+          status.textContent = "Done.";
+          done(token);
+        }});
+        check.answer().then(token => {
+          if (!token) {
+            status.textContent = "Captcha failed. Close this and try again.";
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

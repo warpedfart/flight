@@ -1,0 +1,29 @@
+# accounts, login tokens and logs
+/data/
+
+# assets mirrored from the official CDN
+/cache/
+
+# decompiler
+tools/ffdec/
+tools/hud/hud.xml
+tools/hud/hud.pickle
+tools/hud/__pycache__/
+
+node_modules/
+*.log
+tools/recorder.js
+SITE.md
+
+
+__pycache__/
+
+# internal markdown files
+*.md
+!deploy/README.md
+!/CONTRIBUTING.md
+/HANDOFF.md
+/DISCOVERIES.md
+/GOING-PUBLIC.md
+
+/client-updates
