@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Brings the server to origin's main and restarts it when the change needs it.
-# Run as root by either burrow-update.timer or the OpenRC updater service; git
+# Run as root by either flight-update.timer or the OpenRC updater service; git
 # itself runs as the server's user.
 set -euo pipefail
 
-dir=${BURROW_DIR:-/home/aj/ajc-private-server}
-user=${BURROW_USER:-aj}
-service=${BURROW_SERVICE:-burrow}
-branch=${BURROW_BRANCH:-main}
-init=${BURROW_INIT:-}
+dir=${FLIGHT_DIR:-/home/aj/ajc-private-server}
+user=${FLIGHT_USER:-aj}
+service=${FLIGHT_SERVICE:-flight}
+branch=${FLIGHT_BRANCH:-main}
+init=${FLIGHT_INIT:-}
 
 git() { runuser -u "$user" -- git -C "$dir" "$@"; }
 
@@ -24,7 +24,7 @@ restart_service() {
       fi
       ;;
     *)
-      echo "unknown BURROW_INIT value: $init (expected systemd or openrc)" >&2
+      echo "unknown FLIGHT_INIT value: $init (expected systemd or openrc)" >&2
       return 2
       ;;
   esac

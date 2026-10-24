@@ -126,7 +126,7 @@ module.exports = {
   // sign in to /dashboard/admin (OAuth2 redirects:
   // <siteUrl>account/discord/callback,
   // <siteUrl>dashboard/admin/discord/callback, and
-  // <siteUrl>dashboard/staff/discord/callback), and a bot in Burrow's Discord
+  // <siteUrl>dashboard/staff/discord/callback), and a bot in Flight's Discord
   // server for the booster badge. linking is off without the first two, the
   // booster badge left alone without the last two.
   discord: {
@@ -163,7 +163,7 @@ module.exports = {
   // 39: chat drawn as text and never as markup, the chat filter, and the
   // game no longer open to SWFs from other addresses.
   // 40: the chat filter's window laid out again.
-  // 41: the game's text says "Burrow" where it said Animal Jam.
+  // 41: the game's text says "Flight" where it said Animal Jam.
   // 48: the item giver (the item finder renamed) with previews and hex colours;
   // 49 and 50: its link to a colour picker.
   // 61: the Owner, Moderator, Developer and Verified name tag badges seen by everyone.

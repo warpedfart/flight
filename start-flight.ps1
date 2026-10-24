@@ -1,4 +1,4 @@
-Set-Location D:\burrow-server
+Set-Location D:\flight-server
 $env:AJ_PUBLIC_URL = "https://babyburrow.playit.plus"
 $env:AJ_GAME_PORT = "14265"
 $env:AJ_HOST = "babyburrow.duckdns.org"
