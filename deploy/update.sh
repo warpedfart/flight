@@ -63,7 +63,7 @@ fi
 # push of many files) had git cut off mid-write ("Broken pipe"), which
 # pipefail read as nothing to restart for.
 changed=$(git diff --name-only "$old" "$new")
-if grep -qvE '^(public/|client-updates/|test/|tools/|deploy/|[^/]+\.md$|\.gitignore$)' <<<"$changed"; then
+if grep -qvE '^(public/|client-updates/|test/|tools/|deploy/|server_personalization/|[^/]+\.md$|\.gitignore$)' <<<"$changed"; then
   restart_service
   echo "updated $old -> $new, restarted $service"
 else

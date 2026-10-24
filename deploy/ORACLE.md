@@ -9,6 +9,15 @@ Assumes Ubuntu 24.04. Commands are run on the VM unless marked **[local]**.
 - An SSH key: **[local]** `ssh-keygen -t ed25519` if you don't have one; you'll paste `~/.ssh/id_ed25519.pub`.
 - Your Git repo URL (`https://github.com/butterbarned/babyburt`). If it is private, use a deploy key or a token.
 
+## 0b. Reusing a VM you already have
+If the VM already runs something else (for example a Caddy-fronted site), skip step 1 and read this first.
+- **Do not delete an Ampere A1 VM to start over.** Free A1 capacity is often unavailable, so you may not get it back.
+- Move anything else off the VM first and confirm it works elsewhere. If Caddy owns ports 80/443, stop and disable it
+  (`sudo systemctl disable --now caddy`) before step 5, because certbot standalone and Flight both need those ports.
+- Ports 80 and 443 may already be open in both firewalls; add only 9339 (step 3) and avoid duplicate rules.
+- Free disk space and RAM are shared: check `df -h` and `free -h`.
+- Anything else that serves the same hostname must be turned off before Flight starts, or the bind on 443 fails.
+
 ## 1. Create the VM
 1. Console > Compute > Instances > **Create instance**.
 2. Image: **Canonical Ubuntu 24.04**.

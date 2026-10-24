@@ -22,9 +22,14 @@ __pycache__/
 *.md
 !deploy/README.md
 !deploy/ORACLE.md
+!server_personalization/README.md
 !/CONTRIBUTING.md
 /HANDOFF.md
 /DISCOVERIES.md
 /GOING-PUBLIC.md
 
 /client-updates
+
+# server personalization: copies of the original logos
+/server_personalization/backup/
+/server_personalization/current.json
