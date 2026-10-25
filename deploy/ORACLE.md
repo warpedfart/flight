@@ -9,7 +9,7 @@ Assumes Ubuntu 24.04. Commands are run on the VM unless marked **[local]**.
   - **Sign up:** <https://www.oracle.com/cloud/free/> (click **Start for free**).
   - **Sign in later:** <https://cloud.oracle.com>. You will be asked for your account name (the "cloud account name" you chose at sign-up) and then your username and password.
   - You pick a **home region** at sign-up and cannot change it. Always Free resources only work in that region, and some regions often run out of free capacity, so choose one with good availability for you.
-- An SSH key: **[local]** `ssh-keygen -t ed25519` if you don't have one; you'll paste `~/.ssh/id_ed25519.pub`.
+- Nothing to prepare for SSH: in step 1 Oracle generates the key for you. Keep the private key file it downloads.
 - Your Git repo URL (`https://github.com/butterbarned/babyburt`). If it is private, use a deploy key or a token.
 
 ## 0b. Reusing a VM you already have
@@ -24,11 +24,11 @@ If the VM already runs something else (for example a Caddy-fronted site), skip s
 ## 1. Create the VM
 1. Console > Compute > Instances > **Create instance**.
 2. Image: **Canonical Ubuntu 24.04**.
-3. Shape: **Ampere `VM.Standard.A1.Flex`**, 2 OCPU / 12 GB (Always Free allows up to 4 / 24). If you get "out of capacity", retry later or try another availability domain, or use `VM.Standard.E2.1.Micro` (1 GB RAM: add swap, see step 3).
+3. Shape: **Ampere `VM.Standard.A1.Flex`**, 2 OCPU / 12 GB (Always Free allows up to 4 / 24). If you get "out of capacity", retry later or try another availability domain, or, if it is available on your account, use `VM.Standard.E2.1.Micro` (1 GB RAM: add swap, see step 3). Not every account or region offers it.
 4. Networking: keep the default VCN and **assign a public IPv4**.
-5. Paste your SSH public key. Boot volume: 50 GB is fine.
+5. Under **Add SSH keys**, choose **Generate a key pair for me** and click **Save private key** (also save the public key if you like). You can't download it again later, so keep the file safe. Boot volume: 50 GB is fine.
 6. Create, wait for "Running", copy the public IP.
-7. **[local]** `ssh ubuntu@VM_IP`. (Optional: Networking > IP management > Reserved public IPs, so the IP survives re-creating the VM.)
+7. **[local]** connect with the downloaded key (`chmod 600` it first on Linux/macOS): `ssh -i /path/to/ssh-key.key ubuntu@VM_IP`. With PuTTY, convert the key to `.ppk` using PuTTYgen (Load, then Save private key) and select it under Connection > SSH > Auth > Credentials. Later `ssh` and `rsync` commands in this guide need the same `-i /path/to/ssh-key.key` option. (Optional: Networking > IP management > Reserved public IPs, so the IP survives re-creating the VM.)
 
 ## 2. DNS
 Add an `A` record: `flight.example.com` -> `VM_IP`. Check with `dig +short flight.example.com` before step 5.
@@ -42,6 +42,7 @@ sudo iptables -I INPUT 5 -p tcp -m multiport --dports 80,443,9339 -j ACCEPT
 sudo apt update && sudo apt install -y iptables-persistent   # say yes to saving
 sudo netfilter-persistent save
 ```
+The rule must sit above the `REJECT` line. Check with `sudo iptables -L INPUT -n --line-numbers`; if `REJECT` comes first, re-add the rule at that line number instead of 5.
 Optional swap for small shapes:
 ```sh
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
@@ -60,7 +61,7 @@ Port 80 must be free and open (step 3).
 ```sh
 sudo certbot certonly --standalone -d flight.example.com
 ```
-Let the server's user read the certs (created in step 6):
+Create the `flight` user that will run the server, and let it read the certs:
 ```sh
 sudo useradd -m -s /bin/bash flight
 sudo setfacl -R -m u:flight:rX /etc/letsencrypt/live /etc/letsencrypt/archive
@@ -137,9 +138,11 @@ Do **not** set `AJ_TRUSTED_PROXY` (no proxy here), `AJ_TRUST_LOCAL` or `AJ_REGIS
 On a public server `/admin` only answers requests coming from the VM itself (or addresses in `AJ_ADMIN_ALLOW`). Use an SSH tunnel:
 ```sh
 # [local]
-ssh -L 8443:localhost:443 ubuntu@VM_IP
+ssh -i /path/to/ssh-key.key -L 8443:localhost:443 ubuntu@VM_IP
 ```
-then open `https://localhost:8443/admin` (accept the certificate-name warning: the cert is for your domain). Alternatively add `AJ_ADMIN_ALLOW=YOUR_IP` to `/etc/flight.env` and restart; only do that with a fixed IP.
+In PuTTY instead: Connection > SSH > Tunnels, source port `8443`, destination `localhost:443`, click **Add**, then connect (with your `.ppk` key set as in step 1).
+
+Keep that connection open and browse to `https://localhost:8443/admin` (accept the certificate-name warning: the cert is for your domain). Alternatively add `AJ_ADMIN_ALLOW=YOUR_IP` to `/etc/flight.env` and restart; only do that with a fixed IP.
 
 1. Enter the setup code from `journalctl -u flight | grep setup` if asked, and choose the admin password.
 2. Make an account (or sign up at `https://flight.example.com/register`) and promote it to staff in the panel.
@@ -156,8 +159,9 @@ cd /home/flight/flight && sudo -u flight git pull --ff-only && sudo -u flight np
 ```
 Automatic (checks every 2 minutes; your branch is `master`, the script defaults to `main`):
 ```sh
+cd /home/flight/flight
 sudo cp deploy/flight-update.{service,timer} /etc/systemd/system/
-sudo sed -i 's#/home/aj/ajc-private-server#/home/flight/flight#' /etc/systemd/system/flight-update.service
+sudo sed -i 's#/home/aj/ajc-private-server#/home/flight/flight#' /etc/systemd/system/flight-update.service   # fixes the script path
 sudo mkdir -p /etc/systemd/system/flight-update.service.d
 printf '[Service]\nEnvironment=FLIGHT_DIR=/home/flight/flight FLIGHT_USER=flight FLIGHT_BRANCH=master FLIGHT_INIT=systemd\n' | sudo tee /etc/systemd/system/flight-update.service.d/env.conf
 sudo systemctl daemon-reload && sudo systemctl enable --now flight-update.timer
@@ -167,9 +171,9 @@ sudo systemctl daemon-reload && sudo systemctl enable --now flight-update.timer
 All player data is in `/home/flight/flight/data/` (`game.sqlite`, daily copies in `backups/`, logs). It is gitignored; never commit it. Pull it to your computer regularly:
 ```sh
 # [local]
-rsync -az ubuntu@VM_IP:/home/flight/flight/data/ ~/flight-backup/
+rsync -az -e "ssh -i /path/to/ssh-key.key" --rsync-path="sudo rsync" ubuntu@VM_IP:/home/flight/flight/data/ ~/flight-backup/
 ```
-(`sudo chmod -R a+rX` or run rsync with `--rsync-path="sudo rsync"` if permissions block it.) Also consider an Oracle boot-volume backup.
+(`--rsync-path="sudo rsync"` lets the `ubuntu` user read files owned by `flight`. On Windows with PuTTY, use `pscp -i key.ppk` or WinSCP instead; you may need `sudo chmod -R a+rX /home/flight/flight/data` first.) Also consider an Oracle boot-volume backup.
 
 ## Troubleshooting
 - **Site unreachable:** both firewall layers (step 3); `sudo ss -tlnp | grep -E '443|9339'`.
