@@ -24,6 +24,8 @@ __pycache__/
 !deploy/ORACLE.md
 !server_personalization/README.md
 !/CONTRIBUTING.md
+!/README.md
+!/LOCAL_SETUP.md
 /HANDOFF.md
 /DISCOVERIES.md
 /GOING-PUBLIC.md

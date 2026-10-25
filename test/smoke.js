@@ -654,7 +654,15 @@ const run = async () => {
     login_choices: {accountType: 0, isGuide: true, membershipDays: 12, isModerator: "yes"}})).json();
   assert.strictEqual((await (await fetch(`${BASE}/player`, {headers: {Authorization: `Bearer ${chosen.auth_token}`}})).json()).game_account_type, 0);
   a.xt("ag", denId, "Erin", 0);
+  assert.deepStrictEqual((await a.untilXt("ag")).slice(5, 7), ["0", "0"]); // account type; guide refused: no admin made Erin one
+  // once the admin makes the account a guide, asking for it is honoured (the admin password was changed above)
+  const guideAdmin = (await panel("login", {password: "admin-password-2"})).cookie;
+  assert.strictEqual((await panel("account", {username: "Erin", action: "guide", on: true}, guideAdmin)).status, 200);
+  await postJson(`${BASE}/authenticate`, {username: "Erin", password: "KettlePass05",
+    login_choices: {accountType: 0, isGuide: true}});
+  a.xt("ag", denId, "Erin", 0);
   assert.deepStrictEqual((await a.untilXt("ag")).slice(5, 7), ["0", "1"]); // account type, guide
+  assert.strictEqual((await panel("account", {username: "Erin", action: "guide", on: false}, guideAdmin)).status, 200);
   await postJson(`${BASE}/authenticate`, {username: "Erin", password: "KettlePass05"}); // and back to normal
   a.xt("ag", denId, "Erin", 0);
   assert.deepStrictEqual((await a.untilXt("ag")).slice(5, 7), ["2", "0"]);
