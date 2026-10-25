@@ -1,5 +1,46 @@
 # Custom item pictures: how they are stored, drawn and what to expect
 
+## TL;DR (no technical knowledge needed)
+
+**What is a custom item?** It is a copy of an item that already exists in the game, with a new name, price and,
+if you like, your own picture. The copy behaves exactly like the original (a hat is still a hat, a chair is
+still a chair). Only the way it looks can change.
+
+**What picture can I use?** A normal image file (PNG is best, because it can have see-through parts). It must be
+between 8 and 512 pixels on each side and small in file size (under about 300 KB). Some servers have a
+moderator look at new pictures first, and some check them with an automatic filter.
+
+**How does it look in the game?**
+
+- **Clothes, "sticker" look.** Your picture is stuck onto the avatar where the original item would be, like a
+  sticker on a T-shirt. It is shrunk or stretched to fit the same space as the original item, and it flips to the
+  other side when the avatar turns around (so writing will appear backwards).
+- **Clothes, "texture" look.** Your picture is painted *onto the shape of the original item*, like wrapping paper
+  on a box. The original item's outline, its dark lines and its shading stay, and your picture's colours fill in
+  between. Dark parts of the original are never painted over.
+- **Den items (furniture and decorations).** Your picture simply replaces the item. It is shown as a still image,
+  standing on the spot where you put it. It won't move, animate, or do anything special.
+- **Icons.** In your inventory and the shop, the item shows your picture as it is.
+
+**Things to know before you make one:**
+
+1. Pick the original item for its **shape and where it goes**, not for its colours. The picture lives inside
+   that shape.
+2. The picture is the same for every pose and every animal, but the space it fills changes a little, so it will
+   look slightly different in each. Check a few.
+3. For the texture look, **dark colours hide your picture**. A black or navy version of the item will show little
+   or none of it. Bright colours show the most.
+4. Keep pictures **simple and bold**. Tiny details get lost, and texture pictures can look jagged.
+5. Den pictures are best around 160 by 160 pixels or smaller, with the object touching the bottom edge of the
+   image (that edge is where it sits on the floor).
+6. Players can switch off "Custom pictures" in their own settings. They then see the original item instead.
+   If something goes wrong with a picture, the game shows the original item rather than breaking.
+
+The rest of this document is the detailed version, for people who want to know exactly how it works or build the
+same thing somewhere else.
+
+---
+
 This describes how Flight draws an item that has a picture of its own (a PNG uploaded by the item's maker), for
 **clothing** (worn on an avatar, in two looks: *sticker* and *texture*) and for **den items**. It is written so
 you can reproduce the behaviour in another client or renderer, and so that people making items know which quirks
