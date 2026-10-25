@@ -1,0 +1,244 @@
+# Custom item pictures: how they are stored, drawn and what to expect
+
+This describes how Flight draws an item that has a picture of its own (a PNG uploaded by the item's maker), for
+**clothing** (worn on an avatar, in two looks: *sticker* and *texture*) and for **den items**. It is written so
+you can reproduce the behaviour in another client or renderer, and so that people making items know which quirks
+to design around.
+
+Everything here was read from the source, not measured by running the game. Where something is an inference, it
+says so. File references are to this repository.
+
+| Part | File |
+|---|---|
+| Item records, ids, def rows | `lib/customitems.js` |
+| Picture validation, cleaning, storage | `lib/itemart.js` |
+| Serving pictures, `crossdomain.xml` | `lib/http.js` (`/itemart/...`, `/crossdomain.xml`) |
+| Player maker / approval | `lib/playeritems.js`, `lib/modpanel.js` |
+| Optional NSFW scan | `lib/image-moderation.js` |
+| Client: loading, caching, URLs | `swf-src/AJClient.as` (`customArtUrl`, `customArtBitmap`, `loadArt`) |
+| Client: worn clothing | `swf-src/LayerBitmap.as` (`paintLayer`), `swf-src/LayerAnim.as` |
+| Client: icons | `swf-src/Item.as` (`makeSmallIcon`, `makeLargeIcon`) |
+| Client: den items | `swf-src/DenItemHelper.as` (`loadCustomArt`) |
+
+---
+
+## 1. The model
+
+A custom item is **an existing game item plus overrides**. The record (`custom_items` table) has a `base` (a real
+item id below 50000), and its own id (50000 and up), name, price, members flag, colours, shop flag and art.
+
+The server builds the item's definition row as the base's row with the overrides applied (`rowOf`). So everything
+not overridden comes from the base: its layer, category, wear rules, footprint, where it can be placed, sort
+category, scale and so on. The picture only changes **how the item is drawn**. It does not change what the item
+*is*. Choose the base for its behaviour and shape, not for its looks.
+
+Only some bases are allowed:
+- Clothing: any clothing piece (not a body part).
+- Den items: only "plain" (special type 0) and mannequin (special type 4). Portals, games and similar are refused.
+
+The client learns about custom items in the item packs it downloads, and through an `xdi` message for items made
+while it is running. Each row carries `art` (a version string, empty if none) and `artMode` (`sticker` or
+`texture`). A row whose picture is waiting for a moderator is not sent at all.
+
+## 2. The picture: upload rules and storage
+
+`lib/itemart.js`, function `check`, then `set`:
+
+1. Accepts **PNG, JPEG, GIF or BMP**, recognised by their bytes, never by file name. Max upload 2 MB.
+2. Metadata is stripped. PNG keeps only `IHDR PLTE IDAT IEND tRNS gAMA cHRM sRGB iCCP sBIT pHYs`. JPEG loses
+   APP1 to APP15 and comment segments (EXIF, XMP). GIF keeps image blocks, graphic-control blocks and the loop
+   block, and loses comments. A BMP (1, 4, 8, 24 or 32 bit, uncompressed or bit fields, up to 4096 px) is converted
+   to PNG and, if larger than 512 px, shrunk by box averaging.
+3. After cleaning the file must be **300 KB or less**, and each side **8 to 512 px**. Larger PNG/JPEG/GIF are
+   rejected, not resized. (The web pages and the in-game maker shrink big pictures before uploading.)
+4. Optionally scanned by Google Vision SafeSearch if a key is configured. "Likely" adult or racy is blocked.
+   If the scanner is enabled but unreachable, the upload fails closed.
+5. A SHA-256 of the cleaned bytes is compared with pictures a moderator previously turned away.
+6. Stored as `data/itemart/<kind>-<id>.<png|jpg|gif>`. The item's `art` version is a one-letter type mark plus the
+   first 12 hex digits of the SHA-256 (`p…`, `j…`, `g…`). A new picture means a new version, so caches never serve
+   an old one.
+
+Approval: player-made items and pictures may be held (`pending` / `artPending`) until a moderator approves. New
+accounts can be blocked from adding pictures for `AJ_ITEM_ART_MIN_HOURS` (default 24; 0 turns it off). While a
+picture is waiting, `/itemart/...` returns 404 and the client shows the base art.
+
+### Serving
+
+`GET /itemart/<clothing|den>/<id>.png?v=<version>` returns the stored file with the **real** content type
+(`image/png`, `image/jpeg` or `image/gif`, whatever the extension in the URL says), with
+`Cache-Control: public, max-age=31536000, immutable` and a locked-down Content-Security-Policy. The client appends
+`?v=<art>` and encodes it.
+
+`/crossdomain.xml` allows any origin. This matters: the client reads the picture's **pixels** (needed for sticker
+and texture), and a Flash `Loader` may only read pixels from another address if that address publishes a policy
+file. Without it the client falls back to a loader that can display the picture but not read it.
+
+## 3. Client plumbing (what every renderer needs)
+
+- State per item: `art` version and `artMode`, keyed `"<kind>:<id>"` (`onItemDefs`).
+- **Player setting "Custom pictures"** (user variable 9006, 1 = hidden): when hidden, every custom item is drawn
+  with its base's art on that player's screen only. All lookups go through `artOf`, which returns nothing in that
+  case.
+- `customArtUrl(kind, id)` = `<website>/itemart/<kind>/<id>.png?v=<art>`.
+- `customArtBitmap(kind, id, waiter)` loads the picture once per `(kind:id, version)` and keeps the BitmapData. If
+  it has not arrived yet it returns nothing and registers the waiter; on arrival the waiter repaints.
+- `loadArt` (used for icons and den items) has a small shared cache (400 pictures, then it clears) and queues
+  requests for a URL that is already loading.
+- Failure at any step means the base item's own art is drawn. A broken picture never breaks the item.
+
+## 4. Worn clothing: the sticker look
+
+Code: `LayerBitmap.paintLayer`. This runs **once per layer of the base item, per animation frame, per facing
+direction**.
+
+Inputs: the picture `P` (width `pw`, height `ph`), and the layer's frame record `f` with `x, y, w, h` (that
+frame's bounding box inside the avatar bitmap, from the base art).
+
+```
+left = f.x - bmin.x            top = f.y - bmin.y          // bmin = origin of the avatar bitmap
+if flipped: left = (bmax.x - bmin.x) - left - f.w          // mirror the box within the bitmap
+s = min(f.w / pw, f.h / ph)                                // fit inside the box; may scale UP
+if flipped: matrix = scale(-s, s), translate(left + (f.w + pw*s)/2, top + (f.h - ph*s)/2)
+else:       matrix = scale( s, s), translate(left + (f.w - pw*s)/2, top + (f.h - ph*s)/2)
+bitmap.draw(P, matrix, smoothing = true)                   // normal alpha blending
+```
+
+Properties:
+- The **base item's art is not drawn at all.** Only the picture is.
+- The picture keeps its aspect ratio, is centred in the frame's box, and is mirrored when the avatar faces the
+  other way (so text reads backwards on a flipped avatar).
+- It is **not clipped to the item's silhouette**. It is a rectangle (with its own transparency) and cannot go
+  outside the box.
+- The scale is `min(w/pw, h/ph)` with no upper limit of 1, so a small picture is enlarged to fill the box (smoothed).
+- The box changes with pose, animal and animation frame, so the picture's size and position change with them.
+  Nothing makes it follow body shape.
+- Because it runs per layer, a base item made of several layers will **repeat the picture in each layer's own
+  box**. (Inferred from the loop structure; check with a multi-layer base before relying on it.)
+
+## 5. Worn clothing: the texture look
+
+Same entry point, same frame box (`left, top, f.w, f.h`, with the same flip rule). Steps:
+
+1. **Draw the base layer alone** into a scratch bitmap. The scratch is one shared transparent bitmap, at least
+   256 x 256 and grown when needed, cleared before each layer. The item is drawn exactly as normal (its colour
+   palette is applied here), only into the scratch instead of the avatar bitmap.
+2. **Work out the region**: `x0 = max(0, int(left))`, `y0 = max(0, int(top))`, `x1 = min(bitmapWidth, int(left + w))`,
+   `y1 = min(bitmapHeight, int(top + h))`.
+3. For every pixel `(x, y)` in that region whose alpha is above 0, compute luminance on the 0 to 255 channels:
+
+   ```
+   L = (3*R + 6*G + 1*B) / 10
+   ```
+4. **If `L < 60`, leave the pixel alone.** This is the "outline is kept" rule: dark pixels are never replaced.
+5. **Otherwise replace it**:
+
+   ```
+   u = (flipped ? (x1 - 1 - x) : (x - x0)) / max(1, x1 - x0)
+   v = (y - y0) / max(1, y1 - y0)
+   c = P.getPixel32( min(pw-1, int(u * pw)), min(ph-1, int(v * ph)) )       // nearest neighbour, no smoothing
+   k = clamp(L / 170, 0.55, 1.15)                                             // keep the item's shading
+   R' = min(255, c.R * k)   G' = min(255, c.G * k)   B' = min(255, c.B * k)
+   A' = min(itemAlpha, c.A)
+   ```
+6. Composite the whole scratch bitmap onto the avatar bitmap with alpha merging.
+
+What this means:
+- **What survives from the original:** the silhouette and its soft edges (alpha), every pixel darker than 60, and
+  the light/dark modelling (folds, shadows, highlights), scaled by `k`.
+- **What is replaced:** the colour of all other pixels. Hue and saturation come entirely from the picture. The
+  item's own dye matters only through brightness, since it feeds `L`.
+- `k` is 0.55 for any `L` up to about 93, rises linearly, and reaches 1.15 at `L` of about 196. So the picture is
+  darkened to 55% in shadows and can be up to 15% brighter in highlights. Pure white in the picture only stays
+  white where the original was bright.
+- The picture is **stretched to the frame box ignoring its aspect ratio**, and the box differs per pose, so
+  the stretch differs per pose and animal.
+- **Dark dyes eat the picture.** A navy or black colourway has most pixels below `L = 60`, so little or none of
+  the picture shows. A bright colourway shows the most. The same item in different colours shows different
+  amounts of the picture.
+- Nearest-neighbour sampling of a picture up to 512 px into a box that is usually much smaller gives a harsh,
+  aliased result. Pictures about the size of the box, with bold shapes, look best.
+- **Clamping quirk:** the region is clamped to the bitmap but the mapping is not. If the frame's box hangs off the
+  bitmap, the whole picture is squeezed into the visible part and the sample positions are measured from the
+  clamped edge (the flip case uses the clamped right edge too).
+- Semi-transparent edge pixels that are bright (`L >= 60`) are replaced and keep the lower alpha, so soft edges
+  carry the picture colour; dark edge pixels keep their original colour (a dark fringe).
+
+## 6. Caching and repainting (clothing)
+
+- Rendered avatar frames are cached. The cache key of a layer group gets `"|" + id + ":" + art + ":" + artMode`
+  added for each custom item with a picture (`customArtKey`), so changing the picture or the look produces a new
+  cache entry and other items' caches are untouched.
+- If a picture has not loaded when a frame is painted, that frame is painted with the base art and kept. When the
+  picture arrives (`artArrived`), every kept frame is marked invalid and repainted. Without that, the picture
+  would appear only on frames drawn afterward and flicker through an animation.
+- Both look changes (sticker <-> texture) and new pictures reach players already in game via a new `xdi` row.
+
+## 7. Icons (clothing and den)
+
+For a clothing item with a picture the **icon** (inventory, shop, lists) is the picture, not a render of the worn
+item: `loadArt(url, sprite, 100, standing = false)`. It is fitted inside a 100 x 100 square, **never enlarged**
+(scale `min(1, 100/pw, 100/ph)`), smoothed, centred on the square's middle, then passed to the normal icon
+resizer. The icon always shows the plain picture, even for an item that is worn as a texture.
+
+## 8. Den items
+
+Code: `DenItemHelper.loadCustomArt`, called first in `init`, `initDS` and `initGeneric`. If the item has a
+picture, the client **does not fetch the base item's file at all**.
+
+`loadArt(url, sprite, 160, standing = true)`:
+- Scale `s = min(1, 160/pw, 160/ph)`. The picture is **fitted inside 160 x 160 and never enlarged**. A
+  picture under 160 px is shown at its real size.
+- Anchor: centred horizontally on the item's origin (`x = -int(pw*s/2)`), with the **bottom edge on the origin**
+  (`y = -int(ph*s)`). The origin is the item's floor point where it is placed. So draw the picture with its base
+  at the bottom edge and the object centred left to right.
+- Smoothed bitmap. Alpha is respected.
+- The depth sort offset is set to 0, so it sorts by its origin like a plain item.
+- A hit/portal sprite is added so selecting, moving and picking it up still work.
+- What is lost compared with a normal den item: animation, the item's versions/states, its flip frame label, and
+  anything the base's own SWF did. The picture is static and a single image. A GIF is stored animated by the
+  server, but the client takes the picture as a bitmap, which I expect to be its first frame only (untested).
+- What is kept from the base: its definition row (category, placement layer, footprint and similar), because those
+  come from the server, not the art. Whether a base's scale percentage affects the picture in a den was not
+  checked.
+- A mannequin base (type 4): the mannequin view is built from the base's loaded SWF, which is skipped here.
+  Expect a custom mannequin picture to be only a picture, not a dressable mannequin (not tested).
+
+## 9. Design guidance for makers
+
+Clothing:
+- Choose the base by **shape and where it sits** (hat, top, shoes). The picture lives inside that base's boxes.
+- For **sticker**: PNG with transparency, square-ish or matching the base's proportions, bold and readable at
+  small size. Remember it flips on a left-facing avatar and is enlarged to fill the box. Keep a clear margin
+  because the box is the limit, not the silhouette.
+- For **texture**: use a base with clear dark outlines and smooth shading. Avoid bases that are mostly dark or
+  very flat. Choose bright colourways. Use bold, low-detail patterns that survive stretching and nearest-neighbour
+  sampling. Expect the pattern to distort between poses.
+- Test in the worst colourway and on several animals/poses. Test a left-facing avatar.
+- 8 to 512 px per side and under 300 KB. The picture is also the icon, so make sure it reads at 100 px.
+
+Den items:
+- Picture at most 160 x 160 for predictable results, anything larger is scaled down to that. Bottom edge is the
+  floor contact, so leave no empty margin below the object.
+- It is a still image. Do not expect movement or states.
+
+## 10. Recreating it elsewhere
+
+Server side (any language):
+1. Store items as `(kind, id, base, name, cost, members, colours, shop flag, owner, art version, art mode)`;
+   ids start at 50000; derive the definition from the base and override the listed fields.
+2. Accept uploads by content, strip metadata, cap size at 300 KB and 8 to 512 px, version by hash, serve with
+   long immutable caching and the real content type, and allow cross-origin pixel reads if a client needs them.
+3. Hold new pictures for approval if you want, and scan them if you can.
+4. Send `art` and `artMode` with each item row, and push updates to running clients.
+
+Client side:
+1. Per item, load the picture once per version and keep the decoded bitmap; repaint when it arrives.
+2. Sticker: scale to fit the layer frame's box (`min(w/pw, h/ph)`), centre, mirror when flipped, draw in place of
+   the base art.
+3. Texture: render the base layer alone, then for each non-transparent pixel with luminance `(3R+6G+B)/10 >= 60`
+   substitute the nearest picture pixel (picture stretched over the frame box, mirrored when flipped), multiply
+   by `clamp(L/170, 0.55, 1.15)`, and take `min` of the two alphas.
+4. Icons: picture in a 100 px square, never enlarged. Den: picture within 160 px, never enlarged, bottom-centre on
+   the item origin, replacing the item's own file.
+5. Key any frame cache by `(id, art version, mode)`. Fall back to the base art on any failure and honour a
+   per-player option to hide custom pictures.

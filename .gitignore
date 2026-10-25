@@ -24,6 +24,7 @@ __pycache__/
 !deploy/ORACLE.md
 !deploy/DISCORD.md
 !server_personalization/README.md
+!docs/CUSTOM_ITEM_ART.md
 !/CONTRIBUTING.md
 !/README.md
 !/LOCAL_SETUP.md
