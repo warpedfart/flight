@@ -28,6 +28,7 @@ with the desktop client, is in **[LOCAL_SETUP.md](LOCAL_SETUP.md)**.
 |---|---|
 | Run it on my own computer | [LOCAL_SETUP.md](LOCAL_SETUP.md) |
 | Put it on a public server (Oracle Cloud) | [deploy/ORACLE.md](deploy/ORACLE.md) |
+| Set up Discord sign-in and the staff bot | [deploy/DISCORD.md](deploy/DISCORD.md) |
 | Auto-update a server from Git | [deploy/README.md](deploy/README.md) |
 | Give it my own name and logo | [server_personalization/README.md](server_personalization/README.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |

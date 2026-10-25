@@ -6,6 +6,9 @@ Assumes Ubuntu 24.04. Commands are run on the VM unless marked **[local]**.
 ## 0. Before you start
 - A domain (or subdomain) you can edit DNS for. Free `duckdns.org` names work.
 - An Oracle Cloud account (needs a card for verification; Always Free resources are not billed).
+  - **Sign up:** <https://www.oracle.com/cloud/free/> (click **Start for free**).
+  - **Sign in later:** <https://cloud.oracle.com>. You will be asked for your account name (the "cloud account name" you chose at sign-up) and then your username and password.
+  - You pick a **home region** at sign-up and cannot change it. Always Free resources only work in that region, and some regions often run out of free capacity, so choose one with good availability for you.
 - An SSH key: **[local]** `ssh-keygen -t ed25519` if you don't have one; you'll paste `~/.ssh/id_ed25519.pub`.
 - Your Git repo URL (`https://github.com/butterbarned/babyburt`). If it is private, use a deploy key or a token.
 
