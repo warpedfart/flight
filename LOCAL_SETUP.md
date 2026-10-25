@@ -1,6 +1,7 @@
 # Running Flight on your own computer
 
-This sets up a private test server that only your machine can reach. For a public server, use
+This sets up a Flight server on your own computer. By default it is private: only your machine can reach it.
+Step 10 shows how to let friends in from home. For a server that runs all the time, use
 [deploy/ORACLE.md](deploy/ORACLE.md) instead.
 
 ## 1. Requirements
@@ -28,7 +29,25 @@ The log should end with lines like:
 [game] listening on 127.0.0.1:9339
 [server] ready at http://127.0.0.1:8080/
 ```
-Stop it with Ctrl+C. By default it listens on this computer only, so nobody else can connect (to let friends in, see step 10).
+Stop it with Ctrl+C. By default it listens on this computer only, so nobody else can connect (to let friends in,
+see step 10).
+
+**Seeing errors.** Everything the server prints appears in this terminal, including errors, so keep the window
+visible while you test. Packet logging (one line for each message between game and server) is on by default for a
+local server. To also save the output to a file, run `npm start 2>&1 | tee ~/flight.log` (the `2>&1` includes
+error messages).
+
+**Setting an environment variable** (used throughout this guide) depends on your shell:
+
+| Shell | Example for `AJ_REGISTER=1` |
+|---|---|
+| bash / zsh | `AJ_REGISTER=1 npm start` |
+| fish | `env AJ_REGISTER=1 npm start` |
+| Windows PowerShell | `$env:AJ_REGISTER="1"; npm start` |
+| Windows cmd | `set AJ_REGISTER=1&& npm start` (no space before `&&`) |
+
+For several variables, list them one after another before `npm start` (bash/fish), or set each `$env:` line first
+(PowerShell).
 
 ## 4. Set the admin password
 1. Open <http://127.0.0.1:8080/admin>.
@@ -37,32 +56,34 @@ Stop it with Ctrl+C. By default it listens on this computer only, so nobody else
 3. The dashboard is at <http://127.0.0.1:8080/dashboard>.
 
 ## 5. Make an account
-Either:
-- Go to <http://127.0.0.1:8080/register> and sign up. If you turned invite-only on in the admin panel, make a code
-  on the Invites page first. **or**
-- Start the server with `AJ_REGISTER=1 npm start`. Then any unknown name that tries to log in from the game is
-  created on the spot. This is only allowed on a local server; the server refuses it if it is public.
-
-(`AJ_REGISTER=1` on fish shell: `env AJ_REGISTER=1 npm start`. On Windows PowerShell: `$env:AJ_REGISTER="1"; npm start`.)
+Pick one:
+- **Sign up on the website.** Go to <http://127.0.0.1:8080/register>. If you turned invite-only on in the admin
+  panel, make a code on the Invites page first. Passwords need 10 or more characters with a capital letter, a
+  small letter and a digit, and can't contain your username.
+- **Create accounts on login.** Start the server with `AJ_REGISTER=1` (see the table in step 3). Any unknown name
+  that tries to log in from the game is created on the spot. This is only allowed on a local server; the server
+  refuses it if it is public.
 
 ## 6. Play with the desktop client
-Start the client pointing at your server:
+Start the client from its own folder. The address defaults to `http://127.0.0.1:8080`, so a plain launch already
+points at a local server:
 ```sh
-AJ_SERVER=http://127.0.0.1:8080 ./run.sh        # from the client folder
+./run.sh
 ```
-or run it normally and type `http://127.0.0.1:8080` in the server box on its start screen. The address defaults to
-`http://127.0.0.1:8080`, so a plain `./run.sh` already points at a local server. Log in with the account from
-step 5.
+To use a different server, either set `AJ_SERVER` (`AJ_SERVER=http://127.0.0.1:8080 ./run.sh`, written for your
+shell as in step 3) or type the address in the server box on the client's start screen. Log in with the account
+from step 5.
 
 ## 7. Useful settings for local use
-Set these in the shell before `npm start`:
+Set these before `npm start` (see the shell table in step 3):
 
 | Variable | Use |
 |---|---|
 | `AJ_HTTP_PORT=8081`, `AJ_GAME_PORT=9340` | Change ports if the defaults are taken. |
 | `AJ_DATA_DIR=/path/to/data` | Keep the database somewhere else (handy for throwaway tests). |
 | `AJ_OFFLINE=1` | Serve only from the local cache; never fetch from the internet. |
-| `AJ_QUIET=1` | Less logging. (Packet logging is on by default locally.) |
+| `AJ_QUIET=1` | Less logging. (Packet logging is on by default locally, off when the server is public; `AJ_QUIET=0` forces it on.) |
+| `AJ_REQUIRE_DEVICE=0` | Accept clients that don't send device IDs (quick local experiments only). |
 
 ## 8. Where things are saved
 Everything the server writes goes under `data/` (the SQLite database `game.sqlite`, daily `backups/`, logs).
@@ -73,7 +94,9 @@ Delete `data/` to start again from scratch. It is not tracked by Git and must ne
 npm test
 node .github/scripts/invariants.js
 ```
-The tests start their own server on separate ports with a temporary data folder, so they do not touch your
+The second command is a set of repository checks. It currently reports three known findings that were there before
+these guides (`lib/modpanel.js` using `child_process`, and two pages naming `duckduckgo.com`), so those are not
+caused by your changes. The tests start their own server on separate ports with a temporary data folder, so they do not touch your
 `data/`.
 
 ## 10. Sharing your local server with friends
@@ -91,8 +114,8 @@ Ports used: **8080** (website and sign-up) and **9339** (the game). Both are TCP
    ```sh
    AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://YOUR_PUBLIC_IP:8080 npm start
    ```
-   (fish: `env AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://YOUR_PUBLIC_IP:8080 npm start`; PowerShell: set
-   `$env:AJ_BIND="0.0.0.0"` and `$env:AJ_PUBLIC_URL="http://YOUR_PUBLIC_IP:8080"` first.)
+   (Other shells: see the table in step 3. fish needs `env` in front; PowerShell sets `$env:AJ_BIND` and
+   `$env:AJ_PUBLIC_URL` first.)
    `AJ_PUBLIC_URL` is what tells the game client where to connect. Because the server is now public it
    refuses `AJ_REGISTER=1`, and the admin panel only answers on your own computer (use
    `http://127.0.0.1:8080/admin` as before).
@@ -113,26 +136,43 @@ Limits of this option: most home connections get a **new public IP now and then*
 `AJ_PUBLIC_URL` and tell friends each time (the next option fixes this). The connection is plain HTTP, so
 passwords are not encrypted in transit; use a throwaway password and don't reuse one. The client only connects to
 an `http://` address like this if **Allow unencrypted** is switched on in its settings, so tell friends to turn
-that on. If your ISP uses CGNAT
-(your router's "WAN IP" differs from `curl ifconfig.me`), port forwarding can't work; use a VPS
-([deploy/ORACLE.md](deploy/ORACLE.md)) or a tunnel/VPN tool instead.
+that on.
+
+If your ISP uses CGNAT (your router's "WAN IP" differs from what `curl -4 ifconfig.me` shows), port forwarding
+can't work. Use a VPS ([deploy/ORACLE.md](deploy/ORACLE.md)) or a tunnel/VPN tool instead.
+
+Playing from the same home network as the server: many routers can't loop a request for your own public address
+back inside (no "NAT loopback"), so the public address may fail for you even though friends can connect. Test
+from outside your network (phone on mobile data) rather than concluding it is broken.
 
 ### 10b. With a free DuckDNS name
 DuckDNS gives you a name like `myflight.duckdns.org` that follows your changing home IP, so friends use one
 address.
-1. Sign in at <https://www.duckdns.org> and create a subdomain. Note your **token**.
-2. Keep it pointed at your IP by running this regularly (every 5 minutes, via cron or a systemd timer; leaving the
-   `ip=` empty makes DuckDNS use the address the request comes from):
+1. Sign in at <https://www.duckdns.org> and create a subdomain, for example `myflight` (the full name is then
+   `myflight.duckdns.org`). Note your **token** from the top of the page.
+2. Point the name at your IP once, now (use only the part before `.duckdns.org` after `domains=`; leaving `ip=`
+   empty makes DuckDNS use the address the request comes from):
    ```sh
    curl -s "https://www.duckdns.org/update?domains=myflight&token=YOUR_TOKEN&ip="
    ```
-   It prints `OK` on success. Keep the token private.
-3. Do steps 3 to 4 of 10a (firewall and router forwarding) unchanged.
-4. Start the server with the name instead of the IP:
+   It prints `OK` on success (`KO` means the name or token is wrong). Keep the token private. Check with
+   `nslookup myflight.duckdns.org`: it should show your public IP (it can take a minute or two).
+3. Keep it updated, because your home IP changes. Run the same command every 5 minutes:
+   - Linux: `crontab -e`, then add the line
+     `*/5 * * * * curl -s "https://www.duckdns.org/update?domains=myflight&token=YOUR_TOKEN&ip=" >/dev/null`
+     (cron must be installed and running; on Arch/CachyOS install `cronie` and run
+     `sudo systemctl enable --now cronie`).
+   - Windows: Task Scheduler > Create Basic Task, repeat every 5 minutes, running `curl.exe` with the same address.
+   - DuckDNS also lists other ways to do this (router update fields, scripts) on its install page.
+4. Do steps 3 and 4 of 10a (firewall and router forwarding) unchanged.
+5. Start the server with the name instead of the IP:
    ```sh
    AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://myflight.duckdns.org:8080 npm start
    ```
-5. Friends register at `http://myflight.duckdns.org:8080/register` and use that address in the client, with
+   (Other shells: as in 10a.) You do not need to restart it when your IP changes, because friends use the name,
+   not the number.
+6. Test from outside your network (phone on mobile data): open `http://myflight.duckdns.org:8080/`.
+7. Friends register at `http://myflight.duckdns.org:8080/register` and use that address in the client, with
    **Allow unencrypted** switched on in its settings (needed for any `http://` address).
 
 If you want HTTPS instead of plain HTTP, you need a certificate for the DuckDNS name (certbot's DNS challenge
@@ -141,15 +181,24 @@ works with DuckDNS) and the `AJ_TLS_CERT` / `AJ_TLS_KEY` settings, with ports fo
 a server.
 
 ### Stopping sharing
-Stop the server (Ctrl+C), then remove the router port forwards and firewall rules (`sudo ufw delete allow
-8080/tcp` and the same for 9339 on ufw). Back up `data/` before you share, so a bad actor or a mistake can't cost
-you your own accounts.
+Stop the server (Ctrl+C), then undo what you opened: remove the port forwards on your router, and remove the
+firewall rules (ufw: `sudo ufw delete allow 8080/tcp` and `sudo ufw delete allow 9339/tcp`). If you set up
+DuckDNS updates, remove the cron job or scheduled task too. Next time, start with plain `npm start` to go back to
+a private local server. It is also worth backing up `data/` before you open the server to others, so you can
+restore your accounts if something goes wrong.
 
 ## Troubleshooting
 - **`node:sqlite` or "unexpected token" errors:** your Node is too old; install 22.5 or later.
 - **Port already in use:** change `AJ_HTTP_PORT` / `AJ_GAME_PORT`, or stop the other program.
 - **The client says it cannot connect:** make sure the server is running and the client's address is exactly
   `http://127.0.0.1:8080`, not `https` (there is no certificate locally).
-- **The client says it is outdated or is refused at login:** only a Flight/Burrow-style client that sends device
-  IDs is accepted. For quick local experiments you can start the server with `AJ_REQUIRE_DEVICE=0`.
+- **The client says it is outdated or is refused at login:** only a Flight client that sends device IDs is
+  accepted. For quick local experiments you can start the server with `AJ_REQUIRE_DEVICE=0`.
+- **Friends can't connect (step 10):** test from outside your network first. Check that the server was started
+  with `AJ_BIND=0.0.0.0` and an `AJ_PUBLIC_URL` that matches the address friends use, that both ports (8080 and
+  9339) are open in the firewall and forwarded on the router, and that your ISP doesn't use CGNAT.
+- **A friend's client refuses an `http://` address:** they need **Allow unencrypted** switched on in the client's
+  settings.
+- **The server won't start and names a setting:** two settings contradict each other (for example `AJ_REGISTER=1`
+  together with `AJ_BIND=0.0.0.0`). The message names the variable.
 - **Pages or art look empty on first run:** the first visit fetches files into `cache/`; wait a moment and reload.
