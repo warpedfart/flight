@@ -28,7 +28,7 @@ The log should end with lines like:
 [game] listening on 127.0.0.1:9339
 [server] ready at http://127.0.0.1:8080/
 ```
-Stop it with Ctrl+C. By default it listens on this computer only, so nobody else can connect.
+Stop it with Ctrl+C. By default it listens on this computer only, so nobody else can connect (to let friends in, see step 10).
 
 ## 4. Set the admin password
 1. Open <http://127.0.0.1:8080/admin>.
@@ -75,6 +75,75 @@ node .github/scripts/invariants.js
 ```
 The tests start their own server on separate ports with a temporary data folder, so they do not touch your
 `data/`.
+
+## 10. Sharing your local server with friends
+By default only your computer can connect (step 3). To let friends in from the internet you need to do three
+things: make the server listen on the network, open the ports in your firewall and router, and give friends an
+address to use. Only do this if you are comfortable with strangers' traffic reaching your computer; keep
+**invite only** on (admin panel > Invites) so only people you give a code can sign up.
+
+Ports used: **8080** (website and sign-up) and **9339** (the game). Both are TCP.
+
+### 10a. Without a domain (your IP address)
+1. **Find your public IP:** `curl -4 ifconfig.me`. Your **local** IP (for the router) is from `ip -4 addr` on Linux or
+   `ipconfig` on Windows, usually `192.168.x.x`.
+2. **Start the server listening on the network.** Using your public IP from step 1:
+   ```sh
+   AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://YOUR_PUBLIC_IP:8080 npm start
+   ```
+   (fish: `env AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://YOUR_PUBLIC_IP:8080 npm start`; PowerShell: set
+   `$env:AJ_BIND="0.0.0.0"` and `$env:AJ_PUBLIC_URL="http://YOUR_PUBLIC_IP:8080"` first.)
+   `AJ_PUBLIC_URL` is what tells the game client where to connect. Because the server is now public it
+   refuses `AJ_REGISTER=1`, and the admin panel only answers on your own computer (use
+   `http://127.0.0.1:8080/admin` as before).
+3. **Allow the ports through your computer's firewall:**
+   - Linux with ufw: `sudo ufw allow 8080/tcp && sudo ufw allow 9339/tcp`
+   - Linux with firewalld (e.g. Fedora): `sudo firewall-cmd --add-port=8080/tcp --add-port=9339/tcp --permanent && sudo firewall-cmd --reload`
+   - Windows (admin PowerShell): `New-NetFirewallRule -DisplayName "Flight" -Direction Inbound -Protocol TCP -LocalPort 8080,9339 -Action Allow`
+   - If you have no firewall running, skip this.
+4. **Forward the ports on your router.** In the router's admin page (often `192.168.0.1` or `192.168.1.1`), find
+   "Port forwarding" / "Virtual server" and forward TCP **8080** and **9339** to your computer's local IP. Give
+   your computer a fixed local IP (DHCP reservation) so the forward doesn't break.
+5. **Test from outside your home network** (phone on mobile data, or a friend): open
+   `http://YOUR_PUBLIC_IP:8080/`. Testing from your own network often fails even when it works for others.
+6. **Tell friends** to register at `http://YOUR_PUBLIC_IP:8080/register` with an invite code, then enter
+   `http://YOUR_PUBLIC_IP:8080` as the server in the client.
+
+Limits of this option: most home connections get a **new public IP now and then**, so you must update
+`AJ_PUBLIC_URL` and tell friends each time (the next option fixes this). The connection is plain HTTP, so
+passwords are not encrypted in transit; use a throwaway password and don't reuse one. The client only connects to
+an `http://` address like this if **Allow unencrypted** is switched on in its settings, so tell friends to turn
+that on. If your ISP uses CGNAT
+(your router's "WAN IP" differs from `curl ifconfig.me`), port forwarding can't work; use a VPS
+([deploy/ORACLE.md](deploy/ORACLE.md)) or a tunnel/VPN tool instead.
+
+### 10b. With a free DuckDNS name
+DuckDNS gives you a name like `myflight.duckdns.org` that follows your changing home IP, so friends use one
+address.
+1. Sign in at <https://www.duckdns.org> and create a subdomain. Note your **token**.
+2. Keep it pointed at your IP by running this regularly (every 5 minutes, via cron or a systemd timer; leaving the
+   `ip=` empty makes DuckDNS use the address the request comes from):
+   ```sh
+   curl -s "https://www.duckdns.org/update?domains=myflight&token=YOUR_TOKEN&ip="
+   ```
+   It prints `OK` on success. Keep the token private.
+3. Do steps 3 to 4 of 10a (firewall and router forwarding) unchanged.
+4. Start the server with the name instead of the IP:
+   ```sh
+   AJ_BIND=0.0.0.0 AJ_PUBLIC_URL=http://myflight.duckdns.org:8080 npm start
+   ```
+5. Friends register at `http://myflight.duckdns.org:8080/register` and use that address in the client, with
+   **Allow unencrypted** switched on in its settings (needed for any `http://` address).
+
+If you want HTTPS instead of plain HTTP, you need a certificate for the DuckDNS name (certbot's DNS challenge
+works with DuckDNS) and the `AJ_TLS_CERT` / `AJ_TLS_KEY` settings, with ports forwarded as above and an
+`https://` public URL. [deploy/ORACLE.md](deploy/ORACLE.md) steps 5 and 7 show the certificate and settings on
+a server.
+
+### Stopping sharing
+Stop the server (Ctrl+C), then remove the router port forwards and firewall rules (`sudo ufw delete allow
+8080/tcp` and the same for 9339 on ufw). Back up `data/` before you share, so a bad actor or a mistake can't cost
+you your own accounts.
 
 ## Troubleshooting
 - **`node:sqlite` or "unexpected token" errors:** your Node is too old; install 22.5 or later.
