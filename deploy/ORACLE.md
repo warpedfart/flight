@@ -77,9 +77,9 @@ sudo certbot renew --dry-run
 ## 6. Install the server
 ```sh
 sudo -u flight git clone https://github.com/butterbarned/babyburt /home/flight/flight
-cd /home/flight/flight
-sudo -u flight npm ci --omit=dev     # installs discord.js (only needed for the Discord bot)
+sudo -u flight npm --prefix /home/flight/flight ci --omit=dev     # installs discord.js (only needed for the Discord bot)
 ```
+(`/home/flight` is private to the `flight` user, so your normal login can't `cd` into it. The commands in this guide use full paths with `sudo` instead. To work inside it, run `sudo -iu flight`, and `exit` to leave.)
 `swf/` and `public/` come with the repo. Other game files are fetched on demand from the upstream CDN and cached in `cache/` (so the first players load slowly). Don't set `AJ_OFFLINE=1` unless you have copied a full cache over.
 
 ## 7. Configure and run as a service
@@ -155,12 +155,11 @@ The game client (launcher) must point at `https://flight.example.com` with game 
 ## 10. Updates
 Manual:
 ```sh
-cd /home/flight/flight && sudo -u flight git pull --ff-only && sudo -u flight npm ci --omit=dev && sudo systemctl restart flight
+sudo -u flight git -C /home/flight/flight pull --ff-only && sudo -u flight npm --prefix /home/flight/flight ci --omit=dev && sudo systemctl restart flight
 ```
 Automatic (checks every 2 minutes; your branch is `master`, the script defaults to `main`):
 ```sh
-cd /home/flight/flight
-sudo cp deploy/flight-update.{service,timer} /etc/systemd/system/
+sudo cp /home/flight/flight/deploy/flight-update.{service,timer} /etc/systemd/system/
 sudo sed -i 's#/home/aj/ajc-private-server#/home/flight/flight#' /etc/systemd/system/flight-update.service   # fixes the script path
 sudo mkdir -p /etc/systemd/system/flight-update.service.d
 printf '[Service]\nEnvironment=FLIGHT_DIR=/home/flight/flight FLIGHT_USER=flight FLIGHT_BRANCH=master FLIGHT_INIT=systemd\n' | sudo tee /etc/systemd/system/flight-update.service.d/env.conf
