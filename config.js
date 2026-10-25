@@ -109,6 +109,13 @@ module.exports = {
   recoveryMail: env.AJ_RECOVERY_MAIL_URL && env.AJ_RECOVERY_MAIL_TOKEN
     ? {url: env.AJ_RECOVERY_MAIL_URL, token: env.AJ_RECOVERY_MAIL_TOKEN} : null,
 
+  // optional: hand newly made invite codes to an outside service (the
+  // loveflight-bot Discord bot) that gives them out. Both values must be set;
+  // with either missing nothing is sent and the server works as before. The
+  // panel still shows every code, whether or not the service is reachable.
+  inviteHook: env.AJ_INVITE_HOOK_URL && env.AJ_INVITE_HOOK_TOKEN
+    ? {url: env.AJ_INVITE_HOOK_URL.replace(/\/+$/, ""), token: env.AJ_INVITE_HOOK_TOKEN} : null,
+
   // asset mirror: anything not served locally is fetched once from here and
   // cached in cacheDir. set AJ_OFFLINE=1 to serve from the cache only.
   upstreamContent: env.AJ_UPSTREAM || "https://ajcontent.akamaized.net/",

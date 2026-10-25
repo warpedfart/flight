@@ -102,3 +102,17 @@ Then restart the server. The log shows the bot signing in. The bot's commands ar
   Developer Portal and update the environment file.
 - Give the bot only the permissions you use.
 - Discord sign-in only proves identity; roles and permissions are still decided by the server.
+
+## Handing out invite codes through a Discord bot (optional)
+
+The separate **loveflight-bot** can give out invite codes: members agree to the rules in Discord and are sent
+one code by DM. The server does not need it. To connect it, set these on the Flight server and restart:
+
+| Variable | What it does |
+|---|---|
+| `AJ_INVITE_HOOK_URL` | Where the bot listens, for example `http://127.0.0.1:8787`. |
+| `AJ_INVITE_HOOK_TOKEN` | A shared secret; the bot's `INVITE_HOOK_TOKEN` must match. |
+
+With both set, codes made on the **Invites** page are also sent to the bot, and revoked codes are withdrawn.
+The panel still shows every code, and its reply has `handedOver` (`true`, `false`, or `null` when this is not
+set up). With either variable missing, nothing is sent.
