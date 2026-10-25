@@ -241,7 +241,7 @@
         username_taken: "That username is already taken.",
         name_not_allowed: "That username is not allowed.",
         invalid_password: "Passwords need 10 characters or more, with a capital letter, a small letter and a digit.",
-        weak_password: "That password is too easy to guess: it is a common one, or has your username in it.",
+        weak_password: "That password is too easy to guess: it has your username in it.",
         choose_animal: "Choose an animal first.",
         too_many_registrations: "Too many accounts were created from your address. Try again in an hour.",
         address_banned: "Your address is banned.",
@@ -343,6 +343,18 @@
         event.preventDefault();
         if (form.password.value !== form.confirm.value) {
           setStatus("The two passwords do not match.", true);
+          return;
+        }
+        // the same rules the server applies (lib/accounts.js passwordProblem), so a
+        // refusal shows at once; the server still checks, and also knows the common words
+        const typed = form.password.value;
+        if (typed.length < 10 || typed.length > 100 || !/[A-Z]/.test(typed) || !/[a-z]/.test(typed) || !/[0-9]/.test(typed)) {
+          setStatus(MESSAGES.invalid_password, true);
+          return;
+        }
+        const nameKey = form.username.value.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (nameKey.length >= 3 && typed.toLowerCase().replace(/[^a-z0-9]/g, "").includes(nameKey)) {
+          setStatus(MESSAGES.weak_password, true);
           return;
         }
         $("submit").disabled = true;

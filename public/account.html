@@ -991,6 +991,17 @@
           setStatus("password-status", "The new passwords differ.", true);
           return;
         }
+        // the same rules the server applies (lib/accounts.js passwordProblem); the server still checks
+        const typed = $("new-password").value;
+        if (typed.length < 10 || typed.length > 100 || !/[A-Z]/.test(typed) || !/[a-z]/.test(typed) || !/[0-9]/.test(typed)) {
+          setStatus("password-status", "Passwords need 10 characters or more, with a capital letter, a small letter and a digit.", true);
+          return;
+        }
+        const nameKey = account.username.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (nameKey.length >= 3 && typed.toLowerCase().replace(/[^a-z0-9]/g, "").includes(nameKey)) {
+          setStatus("password-status", "That password is too easy to guess: it has your username in it.", true);
+          return;
+        }
         if (await act({action: "password", current: $("current-password").value, password: $("new-password").value}, "password-status")) {
           event.target.reset();
         }
