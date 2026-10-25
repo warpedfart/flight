@@ -56,8 +56,24 @@ anything but `127.0.0.1` or `localhost`. Alternatively, copy the music to the se
 | `--allow-duplicates` | Upload a track even if one with that name exists. |
 | `--insecure` | Accept the certificate of `https://127.0.0.1` / `localhost` (a tunnel's). |
 | `--dry-run` | Show what would happen; convert and upload nothing. |
+| `--list` | Show the uploaded tracks (id and name) and stop. |
+| `--rename ID NAME` | Give an uploaded track another name and stop. Find ids with `--list`. |
 
 You can give several folders or files: `node tools/upload-music.js album1 album2 single.flac`.
+
+## Renaming a track
+
+In the admin panel (or the staff panel, for roles that can upload music), the **Music** tab has a **Rename**
+button on each track. From the command line:
+
+```sh
+node tools/upload-music.js --server https://127.0.0.1:8443 --insecure --list
+node tools/upload-music.js --server https://127.0.0.1:8443 --insecure --rename 50003 "Better Name"
+```
+
+The new name shows in every game at once (no restart, and players don't need to log out), and it is kept across
+restarts. Names are 1 to 40 letters, numbers, spaces and simple punctuation (`' & ! ? . , : ( ) # + -`). Only
+tracks uploaded this way can be renamed. A rename is written to the staff action log like an upload.
 
 ## Converting without uploading
 

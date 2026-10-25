@@ -2803,6 +2803,15 @@
           player.style.cssText = "display:block;margin-top:6px;height:32px;max-width:260px";
           name.append(el("strong", track.name), player);
           const actions = el("td");
+          actions.append(button("Rename", async () => {
+            const chosen = prompt("New name for this track (40 characters at most):", track.name);
+            if (chosen === null || !chosen.trim() || chosen.trim() === track.name) {
+              return;
+            }
+            const result = await musicCall(`?rename=${track.id}&name=${encodeURIComponent(chosen.trim())}`, new Uint8Array(0));
+            setStatus($("music-status"), result.ok || result.error || "That did not work.", !result.ok);
+            await loadMusic();
+          }), " ");
           actions.append(button("Delete", async () => {
             if (!confirm(`Delete "${track.name}"? It is taken from every player who has it. This cannot be undone.`)) {
               return;

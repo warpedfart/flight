@@ -22,6 +22,9 @@
 //   --allow-duplicates upload a track even if one with that name exists (default: skipped)
 //   --insecure         accept the certificate of https://127.0.0.1 or localhost (a tunnel's)
 //   --dry-run          show what would happen; convert and upload nothing
+//   --list             show the uploaded tracks (id and name) and stop
+//   --rename ID NAME   give uploaded track ID another name and stop (find ids with --list);
+//                      NAME is up to 40 letters, numbers, spaces and simple punctuation
 //   --help, -h
 
 const fs = require("fs");
@@ -68,6 +71,14 @@ const parse = argv => {
       case "--allow-duplicates": options.duplicates = true; break;
       case "--insecure": options.insecure = true; break;
       case "--dry-run": options.dryRun = true; break;
+      case "--list": options.list = true; break;
+      case "--rename":
+        if (i + 2 >= argv.length) {
+          fail("--rename needs a track id and a new name: --rename 50003 \"New name\"");
+        }
+        options.rename = {id: argv[i + 1], name: argv[i + 2]};
+        i += 2;
+        break;
       case "--help": case "-h": options.help = true; break;
       default:
         if (arg.startsWith("-")) {
@@ -239,6 +250,7 @@ const connect = (server, insecure) => {
       }
       return reply.json.tracks || [];
     },
+    rename: (id, name) => request("POST", `/admin/api/music?rename=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`, Buffer.alloc(0)),
     upload: (name, data, cost, shop) => request("POST",
       `/admin/api/music?name=${encodeURIComponent(name)}&cost=${cost}${shop ? "&inShop=1" : ""}`, data, {"Content-Type": "audio/mpeg"}),
   };
@@ -246,9 +258,31 @@ const connect = (server, insecure) => {
 
 const main = async () => {
   const options = parse(process.argv.slice(2));
-  if (options.help || options.inputs.length === 0) {
+  if (options.help || (options.inputs.length === 0 && !options.list && !options.rename)) {
     console.log(fs.readFileSync(__filename, "utf8").split("\n").filter(line => line.startsWith("//")).map(line => line.slice(3)).join("\n"));
     process.exit(options.help ? 0 : 1);
+  }
+  // listing and renaming need the server and no files
+  if (options.list || options.rename) {
+    const client = connect(options.server, options.insecure);
+    await client.login(options.password || process.env.AJ_ADMIN_PASSWORD || await askPassword());
+    if (options.rename) {
+      const reply = await client.rename(options.rename.id, options.rename.name);
+      if (reply.status === 200 && reply.json && reply.json.ok) {
+        console.log(reply.json.ok);
+      }
+      else {
+        fail((reply.json && reply.json.error) || `HTTP ${reply.status}`);
+      }
+    }
+    if (options.list) {
+      const tracks = await client.tracks();
+      for (const track of tracks.sort((a, b) => a.id - b.id)) {
+        console.log(`${String(track.id).padStart(6)}  ${track.name}${track.inShop ? `  (on sale, ${track.cost} gems)` : ""}`);
+      }
+      console.log(`${tracks.length} track${tracks.length === 1 ? "" : "s"}`);
+    }
+    process.exit(0);
   }
   const files = collect(options.inputs, options.recursive);
   if (files.length === 0) {
