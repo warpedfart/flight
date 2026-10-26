@@ -15,6 +15,7 @@ const retention = require("./lib/retention.js");
 const colours = require("./lib/colours.js");
 const customItems = require("./lib/customitems.js");
 const customMusic = require("./lib/custommusic.js");
+const theatreVideos = require("./lib/theatrevideos.js");
 const config = require("./config.js");
 const defpacks = require("./lib/defpacks.js");
 const http = require("./lib/http.js");
@@ -45,6 +46,7 @@ const main = async () => {
   colours.load();
   customItems.load();
   customMusic.load();
+  theatreVideos.load();
   reports.load();
   support.load();
   bans.load();

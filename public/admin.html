@@ -414,6 +414,7 @@
           <button role="tab" data-tab="items" aria-selected="false"><span class="icon" aria-hidden="true">&#10070;</span>Items</button>
           <button role="tab" data-tab="wear-rules" aria-selected="false"><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="music" aria-selected="false"><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
+          <button role="tab" data-tab="theatre" aria-selected="false"><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
           <button role="tab" data-tab="bans" aria-selected="false"><span class="icon" aria-hidden="true">&#8856;</span>Bans</button>
           <button role="tab" data-tab="invites" aria-selected="false"><span class="icon" aria-hidden="true">&#9993;</span>Invites</button>
           <button role="tab" data-tab="moderators" aria-selected="false"><span class="icon" aria-hidden="true">&#9733;</span>Moderators</button>
@@ -862,6 +863,29 @@
             <tbody id="music-list"></tbody>
           </table></div>
           <div class="empty" id="no-music" hidden>None yet.</div>
+        </section>
+      </div>
+      <div data-view="theatre" hidden>
+        <section>
+          <h2>Upload a theatre video</h2>
+          <p class="hint">A video kept on this server, for the theatre's screen. Staff with the theatre control type its name in the theatre's video box (where a YouTube link goes) and press Play for room: everyone in the room sees the same part of it, and anyone who comes in later joins it where it is. MP4 (H.264 video, AAC sound) or WebM; 4 GB at most. Files copied into <code>data/theatre-videos/</code> on the server show up here too.</p>
+          <div class="actions">
+            <div class="action">
+              <h3>The video</h3>
+              <div class="row"><input id="theatre-file" type="file" accept=".mp4,.m4v,.webm,video/mp4,video/webm" aria-label="Video file"></div>
+              <div class="row" style="margin-top:8px"><input id="theatre-name" maxlength="60" placeholder="Name (what staff type to play it)" aria-label="Name"></div>
+              <div class="row" style="margin-top:8px"><button type="button" class="primary" id="theatre-upload">Upload</button></div>
+            </div>
+          </div>
+          <p class="status" id="theatre-status" role="status"></p>
+        </section>
+        <section>
+          <h2>Theatre videos</h2>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Video (its name is what staff type)</th><th>Added</th><th class="num">Size</th><th></th></tr></thead>
+            <tbody id="theatre-list"></tbody>
+          </table></div>
+          <div class="empty" id="no-theatre" hidden>None yet.</div>
         </section>
       </div>
       <div data-view="items" hidden>
@@ -3390,6 +3414,119 @@
         await loadMusic();
       });
 
+      // ---- the theatre's videos (lib/theatrevideos.js): files on this
+      // server that staff play on the theatre's screen by typing their name
+      const THEATRE = "/admin/api/theatre";
+      let theatreShown = "";
+      const theatreCall = async query => {
+        try {
+          const response = await fetch(`${THEATRE}${query}`, {method: "POST"});
+          return await response.json().catch(() => ({error: "That did not work."}));
+        }
+        catch (err) {
+          return {error: "The server did not answer."};
+        }
+      };
+      const renderTheatre = data => {
+        const videos = data.videos || [];
+        // drawn again only when something changed: a video being watched keeps playing
+        const shown = JSON.stringify(videos);
+        if (shown === theatreShown) {
+          return;
+        }
+        theatreShown = shown;
+        $("no-theatre").hidden = videos.length > 0;
+        $("theatre-list").replaceChildren(...videos.map(video => {
+          const row = el("tr");
+          const name = el("td");
+          const player = el("video");
+          player.controls = true;
+          player.preload = "none";
+          player.src = `${THEATRE}?play=${video.id}`;
+          player.style.cssText = "display:block;margin-top:6px;width:260px;max-width:100%;background:#000";
+          name.append(el("strong", video.name), player);
+          const actions = el("td");
+          actions.append(button("Rename", async () => {
+            const chosen = prompt("New name for this video (60 characters at most):", video.name);
+            if (chosen === null || !chosen.trim() || chosen.trim() === video.name) {
+              return;
+            }
+            const result = await theatreCall(`?rename=${video.id}&name=${encodeURIComponent(chosen.trim())}`);
+            setStatus($("theatre-status"), result.ok || result.error || "That did not work.", !result.ok);
+            await loadTheatre();
+          }), " ");
+          actions.append(button("Delete", async () => {
+            if (!confirm(`Delete "${video.name}"? It stops in any theatre playing it. This cannot be undone.`)) {
+              return;
+            }
+            const result = await theatreCall(`?delete=${video.id}`);
+            setStatus($("theatre-status"), result.ok || result.error || "That did not work.", !result.ok);
+            await loadTheatre();
+          }, "danger"));
+          row.append(name, el("td", when(Math.floor(video.addedAt / 1000))),
+            el("td", `${(video.bytes / 1048576).toFixed(1)} MB`, "num"), actions);
+          return row;
+        }));
+      };
+      const loadTheatre = async () => {
+        try {
+          const response = await fetch(THEATRE);
+          const data = await response.json().catch(() => ({}));
+          if (response.ok) {
+            renderTheatre(data);
+          }
+        }
+        catch (err) {
+          // shown again with the next refresh
+        }
+      };
+      // the name from the file's, until one is typed
+      $("theatre-file").addEventListener("change", () => {
+        const file = $("theatre-file").files[0];
+        if (file && !$("theatre-name").value.trim()) {
+          $("theatre-name").value = file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_%]+/g, " ").trim().slice(0, 60);
+        }
+      });
+      // sent as it is read from the disk (a video is too big to hold), with
+      // how far along it is
+      $("theatre-upload").addEventListener("click", () => {
+        const file = $("theatre-file").files[0];
+        if (!file || !$("theatre-name").value.trim()) {
+          setStatus($("theatre-status"), file ? "Give the video a name." : "Choose a video first.", true);
+          return;
+        }
+        $("theatre-upload").disabled = true;
+        const request = new XMLHttpRequest();
+        request.open("POST", `${THEATRE}?name=${encodeURIComponent($("theatre-name").value.trim())}`);
+        request.upload.addEventListener("progress", event => {
+          if (event.lengthComputable) {
+            setStatus($("theatre-status"), `Uploading... ${Math.floor(event.loaded / event.total * 100)}% of ${(event.total / 1048576).toFixed(0)} MB`);
+          }
+        });
+        const done = result => {
+          $("theatre-upload").disabled = false;
+          setStatus($("theatre-status"), result.ok || result.error || "That did not work.", !result.ok);
+          if (result.ok) {
+            $("theatre-file").value = "";
+            $("theatre-name").value = "";
+          }
+          loadTheatre();
+        };
+        request.addEventListener("load", () => {
+          let result;
+          try {
+            result = JSON.parse(request.responseText);
+          }
+          catch (err) {
+            result = {error: "That did not work."};
+          }
+          done(result);
+        });
+        request.addEventListener("error", () => done({error: "The upload was cut short. Try again."}));
+        setStatus($("theatre-status"), "Uploading...");
+        request.send(file);
+      });
+
       const refresh = async () => {
         clearTimeout(timer);
         if (!state || !state.signedIn) {
@@ -3466,6 +3603,9 @@
         }
         else if (tab === "music") {
           await loadMusic();
+        }
+        else if (tab === "theatre") {
+          await loadTheatre();
         }
         else if (tab === "items") {
           result = await api("items");
