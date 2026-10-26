@@ -480,6 +480,7 @@
           <button role="tab" data-tab="wear-rules" data-needs="items.restrict" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="items" data-needs="items.create" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10070;</span>Items</button>
           <button role="tab" data-tab="music" data-needs="music.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
+          <button role="tab" data-tab="theatre" data-needs="theater.control" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
         </nav>
         <button id="sign-out" type="button">Sign out</button>
       </aside>
@@ -922,6 +923,16 @@
             <tbody id="music-list"></tbody>
           </table></div>
           <div class="empty" id="no-music" hidden>None yet.</div>
+        </section>
+      </div>
+      <div data-view="theatre" hidden>
+        <section>
+          <h2>Theatres</h2>
+          <p class="hint">What each theatre's screen plays, and the queue after it. Add a video kept on the server by its name, or paste a YouTube link. A server video goes on to the next in the queue by itself when it ends; a YouTube video plays until you skip it. In the game, typing + before a name or link in the theatre's box adds it to the queue too. Theatres are listed while someone is in them, or while something plays or waits there.</p>
+          <p class="status" id="theatre-status" role="status"></p>
+          <datalist id="theatre-video-names"></datalist>
+          <div id="theatre-list"></div>
+          <div class="empty" id="no-theatres" hidden>No theatre is open. One shows here once someone walks into it.</div>
         </section>
       </div>
       <div data-view="items" hidden>
@@ -2865,6 +2876,122 @@
         await loadMusic();
       });
 
+      // ---- the theatres' screens and queues (lib/theatre.js)
+      // m:ss or h:mm:ss
+      const clock = ms => {
+        const seconds = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(seconds / 3600);
+        const rest = `${String(Math.floor(seconds % 3600 / 60)).padStart(hours ? 2 : 1, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+        return hours ? `${hours}:${rest}` : rest;
+      };
+      const theatreAct = async (room, action, extra = {}) => {
+        const result = await api("theatre", {room, action, ...extra});
+        setStatus($("theatre-status"), said(result), !result.ok);
+        await loadTheatre();
+        return result.ok;
+      };
+      const renderTheatres = data => {
+        const theatres = data.theatres || [];
+        $("theatre-video-names").replaceChildren(...(data.videos || []).map(video => {
+          const option = el("option");
+          option.value = video.name;
+          option.label = video.lengthMs ? clock(video.lengthMs) : "length unknown";
+          return option;
+        }));
+        // drawn again every refresh: what was being typed in a box stays
+        const typed = new Map([...document.querySelectorAll("#theatre-list input[data-room]")].map(input => [input.dataset.room, input.value]));
+        const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.room : undefined;
+        $("no-theatres").hidden = theatres.length > 0;
+        $("theatre-list").replaceChildren(...theatres.map(theatre => {
+          const card = el("div", undefined, "action");
+          card.style.marginTop = "14px";
+          card.append(el("h3", `${theatre.title} · ${theatre.players} ${theatre.players === 1 ? "player" : "players"}`));
+          const now = el("p");
+          const playing = theatre.playing;
+          if (playing) {
+            now.append("Playing: ", el("strong", playing.name), " · ",
+              playing.kind === "youtube" ? "YouTube, plays until skipped"
+                : playing.lengthMs ? `${clock(Math.min(playing.inMs, playing.lengthMs))} of ${clock(playing.lengthMs)}` : `${clock(playing.inMs)} in, length unknown: plays until skipped`);
+          }
+          else {
+            now.append(theatre.queue.length ? "Nothing plays: the queue waits." : "Nothing plays.");
+          }
+          const controls = el("div", undefined, "row");
+          if (playing) {
+            controls.append(button(theatre.queue.length ? "Skip to next" : "Skip", () => theatreAct(theatre.room, "skip")), " ",
+              button("Stop", () => theatreAct(theatre.room, "stop"), "danger"));
+          }
+          else if (theatre.queue.length) {
+            controls.append(button("Start the queue", () => theatreAct(theatre.room, "start"), "primary"));
+          }
+          card.append(now, controls);
+          if (theatre.queue.length) {
+            const list = el("ol");
+            list.style.cssText = "margin:10px 0 0;padding-left:22px";
+            theatre.queue.forEach((entry, index) => {
+              const item = el("li");
+              item.style.margin = "4px 0";
+              item.append(el("span", entry.name), " ");
+              if (index > 0) {
+                item.append(button("↑", () => theatreAct(theatre.room, "up", {index})), " ");
+              }
+              if (index < theatre.queue.length - 1) {
+                item.append(button("↓", () => theatreAct(theatre.room, "down", {index})), " ");
+              }
+              item.append(button("Remove", () => theatreAct(theatre.room, "remove", {index})));
+              list.append(item);
+            });
+            card.append(list);
+          }
+          const add = el("div", undefined, "row");
+          add.style.marginTop = "10px";
+          const input = el("input");
+          input.dataset.room = theatre.room;
+          input.setAttribute("list", "theatre-video-names");
+          input.placeholder = "A video's name, or a YouTube link";
+          input.setAttribute("aria-label", `Video for ${theatre.title}`);
+          input.maxLength = 200;
+          input.value = typed.get(theatre.room) || "";
+          input.style.flex = "1";
+          const send = async action => {
+            if (!input.value.trim()) {
+              input.focus();
+              return;
+            }
+            if (await theatreAct(theatre.room, action, {text: input.value.trim()})) {
+              const fresh = document.querySelector(`#theatre-list input[data-room="${CSS.escape(theatre.room)}"]`);
+              if (fresh) {
+                fresh.value = "";
+              }
+            }
+          };
+          input.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+              send("add");
+            }
+          });
+          add.append(input, " ", button("Add to queue", () => send("add"), "primary"), " ", button("Play now", () => send("play")));
+          if (theatre.queue.length) {
+            add.append(" ", button("Clear queue", async () => {
+              if (confirm(`Empty the queue of ${theatre.title}?`)) {
+                await theatreAct(theatre.room, "clear");
+              }
+            }, "danger"));
+          }
+          card.append(add);
+          if (focused === theatre.room) {
+            setTimeout(() => input.focus());
+          }
+          return card;
+        }));
+      };
+      const loadTheatre = async () => {
+        const result = await api("theatre");
+        if (result.ok) {
+          renderTheatres(result.data);
+        }
+      };
+
       const refresh = async () => {
         clearTimeout(timer);
         if (!signedIn) {
@@ -3015,6 +3142,9 @@
         }
         else if (shown === "music") {
           await loadMusic();
+        }
+        else if (shown === "theatre") {
+          await loadTheatre();
         }
         else if (shown === "items") {
           const result = await api("items");

@@ -248,6 +248,7 @@
     <embed id="flash-content"></embed>
     <div id="theatre" hidden>
       <iframe id="theatre-video" class="theatre-screen" title="Theatre video" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <video id="theatre-file" class="theatre-screen" hidden controls playsinline disablepictureinpicture controlslist="nodownload noplaybackrate"></video>
       <div id="own-video" class="theatre-screen" hidden></div>
       <div id="theatre-pills">
         <button type="button" id="own-video-open" class="theatre-pill">&#9654; Your Video</button>
@@ -378,6 +379,7 @@
         placeTheatre();
         ownVideo.inTheatre(theatreScreen !== null);
         browserPage.inTheatre(theatreScreen !== null);
+        roomFile.inTheatre(theatreScreen !== null);
       }
 
       // the covered cells as rectangles: runs along each row, and a run
@@ -463,6 +465,7 @@
         theatre.style.setProperty("--s", String(scale));
         const {x, y, w, h} = theatreScreen;
         place(theatreVideo, x, y, w, h);
+        place(theatreFile, x, y, w, h);
         place(document.getElementById("own-video"), x, y, w, h);
         // the button under the screen's left corner, or inside it when the
         // stage ends first; the box over the middle of the screen.
@@ -475,6 +478,7 @@
         place(document.getElementById("own-video-box"), x + (w - BOX_W) / 2, Math.max(4, y + (h - BOX_H) / 2));
         const clip = coverClip(scale);
         theatreVideo.style.clipPath = clip;
+        theatreFile.style.clipPath = clip;
         document.getElementById("own-video").style.clipPath = clip;
         // the browser is drawn by the desktop client: told where, in this
         // page's pixels, and above the bar when the bar is on the screen.
@@ -497,6 +501,16 @@
       // call. The page merely displays it over the theatre's screen area.
       function ajTheatreVideo(videoId) {
         const id = String(videoId || "");
+        roomFile.stop();
+        const file = /^file:([0-9a-f]{16}):(\d{1,12})$/.exec(id);
+        if (file) {
+          theatreVideo.removeAttribute("src");
+          theatreVideo.classList.remove("visible");
+          roomFile.play(file[1], Number(file[2]));
+          ownVideo.roomVideo(true);
+          browserPage.roomVideo(true);
+          return;
+        }
         if (!/^[A-Za-z0-9_-]{11}$/.test(id)) {
           theatreVideo.removeAttribute("src");
           theatreVideo.classList.remove("visible");
@@ -510,6 +524,98 @@
         ownVideo.roomVideo(true);
         browserPage.roomVideo(true);
       }
+
+      // a video kept on this server that staff play for the room
+      // (lib/theatrevideos.js), told as "file:<id>:<ms in>": how far in it
+      // is for everyone just now. the page keeps it there by its own clock,
+      // so everyone sees about the same part. a player may pause it; played
+      // again, it goes on from where the room is, not where it stopped.
+      const theatreFile = document.getElementById("theatre-file");
+      const roomFile = (() => {
+        const DRIFT_S = 2; // how far off it may be before it is put right
+        const CHECK_MS = 3000;
+        let startedAt = 0; // performance.now() when it was at its start
+        let timer = 0;
+        let here = true; // in the theatre
+        const now = () => (performance.now() - startedAt) / 1000;
+        const playing = () => theatreFile.hasAttribute("src");
+
+        const start = () => {
+          theatreFile.play().catch(() => {
+            // played with no sound when it may not play with it: its
+            // controls give the sound back
+            theatreFile.muted = true;
+            theatreFile.play().catch(() => {});
+          });
+        };
+        const stop = () => {
+          clearInterval(timer);
+          theatreFile.pause();
+          theatreFile.removeAttribute("src");
+          theatreFile.load();
+          theatreFile.hidden = true;
+        };
+        // over (or gone from the server): the screen is the player's again
+        const end = () => {
+          stop();
+          ownVideo.roomVideo(false);
+          browserPage.roomVideo(false);
+        };
+        const keepInStep = () => {
+          if (!playing() || !here || theatreFile.readyState < 1) {
+            return;
+          }
+          if (Number.isFinite(theatreFile.duration) && now() >= theatreFile.duration) {
+            end();
+          }
+          else if (!theatreFile.paused && Math.abs(theatreFile.currentTime - now()) > DRIFT_S) {
+            theatreFile.currentTime = now();
+          }
+        };
+        theatreFile.addEventListener("loadedmetadata", () => {
+          theatreFile.currentTime = Math.min(now(), theatreFile.duration || now());
+          keepInStep();
+        });
+        theatreFile.addEventListener("play", () => {
+          if (theatreFile.readyState >= 1 && Math.abs(theatreFile.currentTime - now()) > DRIFT_S) {
+            theatreFile.currentTime = now();
+          }
+        });
+        theatreFile.addEventListener("ended", () => playing() && end());
+        theatreFile.addEventListener("error", () => playing() && end());
+
+        return {
+          stop,
+          play(id, msIn) {
+            stop();
+            startedAt = performance.now() - msIn;
+            theatreFile.muted = false;
+            theatreFile.src = `/theatre/${id}`;
+            theatreFile.hidden = false;
+            if (here) {
+              start();
+            }
+            timer = setInterval(keepInStep, CHECK_MS);
+          },
+          // out of the theatre it waits, silent; back in, it goes on from
+          // where the room is.
+          inTheatre(yes) {
+            if (yes === here) {
+              return;
+            }
+            here = yes;
+            if (!playing()) {
+              return;
+            }
+            if (!here) {
+              theatreFile.pause();
+            }
+            else if (theatreFile.paused) {
+              start();
+            }
+          },
+        };
+      })();
 
       // a video of the player's own choosing on the theatre screen, seen by
       // them alone: nothing of it goes to the server. YouTube and Vimeo
