@@ -470,6 +470,10 @@ const first = async () => {
   const jpegArt = (await maker("info")).mine.find(sameItem).art;
   const jpegBytes = Buffer.from(await (await fetch(`${BASE}/itemart/clothing/${hatEntry.id}.png?v=${jpegArt}`)).arrayBuffer());
   assert.ok(jpegBytes.includes(Buffer.from("JFIF")) && !jpegBytes.includes(Buffer.from("GPS")), "the EXIF was left in");
+  // a CMYK JPEG (four components), which the game cannot draw, is turned away
+  const cmyk = Buffer.concat([Buffer.from([0xFF, 0xD8]), segment(0xC0, Buffer.from([8, 0, 20, 0, 30, 4, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0, 4, 0x11, 0])),
+    segment(0xDA, Buffer.from([1, 1, 0, 0, 0x3F, 0])), Buffer.from([0x12, 0x34, 0xFF, 0xD9])]);
+  assert.match((await upload(pat, hatEntry, cmyk)).error, /cannot show that kind of JPEG/);
   assert.match((await upload(pat, hatEntry, Buffer.alloc(0), "&remove=1")).ok, /taken away/);
   assert.strictEqual((await fetch(`${BASE}/itemart/clothing/${hatEntry.id}.png`)).status, 404);
   assert.match((await upload(pat, hatEntry, png(24))).ok, /new picture/); // deleted with the item, below

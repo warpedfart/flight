@@ -778,9 +778,10 @@ package gui
          if(param1 && param1.displayObject)
          {
             _loc2_ = param1.displayObject;
-            _loc4_ = MovieClip(Loader(_loc2_.getChildAt(0)).content);
+            // a custom item's picture is a Bitmap (DenItemHelper.loadCustomArt)
+            _loc4_ = _loc2_.numChildren > 0 && _loc2_.getChildAt(0) is Loader ? Loader(_loc2_.getChildAt(0)).content as MovieClip : null;
             _loc5_ = 0;
-            while(_loc5_ < _loc4_.currentLabels.length)
+            while(_loc4_ != null && _loc5_ < _loc4_.currentLabels.length)
             {
                if(_loc4_.currentLabels[_loc5_].name == "icon")
                {

@@ -10,6 +10,14 @@
 #
 # --list prints the videos there now, "<file name><tab><bytes>" a line.
 #
+# to let the user you log in as (ubuntu, say) see, add and delete the
+# videos in a file viewer, and nothing else of the data folder, once:
+#
+#   d=/home/flight/flight/data/theatre-videos
+#   sudo setfacl -m u:ubuntu:x /home/flight /home/flight/flight /home/flight/flight/data
+#   sudo setfacl -R -m u:ubuntu:rwX,m::rwX "$d"
+#   sudo setfacl -d -m u:ubuntu:rwX,u:flight:rwX "$d"
+#
 # the data folder is AJ_DATA_DIR from /etc/flight.env, else data/ beside
 # this script's folder. only MP4 (.mp4, .m4v) and WebM files are taken, and
 # only ones that are what their name says. a video's name is its file's,
@@ -34,7 +42,8 @@ fi
 [ -d "$from" ] || { echo "no such folder: $from" >&2; exit 1; }
 
 owner="$(stat -c %U "$data")"
-install -d -o "$owner" -g "$owner" -m 700 "$dest"
+# made once; never changed after, which would undo an ACL put on it (below)
+[ -d "$dest" ] || install -d -o "$owner" -g "$owner" -m 700 "$dest"
 
 # the same as cleanName in lib/theatrevideos.js
 clean() {
@@ -77,7 +86,7 @@ for file in "$from"/*.mp4 "$from"/*.m4v "$from"/*.webm; do
   waiting="$dest/new-$$-$moved.$ext"
   mv -- "$file" "$waiting"
   chown "$owner:$owner" "$waiting"
-  chmod 600 "$waiting"
+  chmod 640 "$waiting"
   mv -- "$waiting" "$target"
   echo "added: $name"
   moved=$((moved + 1))
