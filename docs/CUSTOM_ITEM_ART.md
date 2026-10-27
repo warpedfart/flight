@@ -59,7 +59,7 @@ says so. File references are to this repository.
 | Client: loading, caching, URLs | `swf-src/AJClient.as` (`customArtUrl`, `customArtBitmap`, `loadArt`) |
 | Client: worn clothing | `swf-src/LayerBitmap.as` (`paintLayer`), `swf-src/LayerAnim.as` |
 | Client: icons | `swf-src/Item.as` (`makeSmallIcon`, `makeLargeIcon`) |
-| Client: den items | `swf-src/DenItemHelper.as` (`loadCustomArt`) |
+| Client: den items | `swf-src/DenItemHelper.as` (`loadCustomArt`), `swf-src/DenItem.as` (icons) |
 
 ---
 
@@ -85,7 +85,9 @@ while it is running. Each row carries `art` (a version string, empty if none) an
 
 `lib/itemart.js`, function `check`, then `set`:
 
-1. Accepts **PNG, JPEG, GIF or BMP**, recognised by their bytes, never by file name. Max upload 2 MB.
+1. Accepts **PNG, JPEG, GIF or BMP**, recognised by their bytes, never by file name. Max upload 2 MB. JPEGs
+   must be 8-bit baseline or progressive, grey or YCbCr colour: Flash cannot draw CMYK, 12-bit, lossless or
+   arithmetic-coded ones, so those are refused.
 2. Metadata is stripped. PNG keeps only `IHDR PLTE IDAT IEND tRNS gAMA cHRM sRGB iCCP sBIT pHYs`. JPEG loses
    APP1 to APP15 and comment segments (EXIF, XMP). GIF keeps image blocks, graphic-control blocks and the loop
    block, and loses comments. A BMP (1, 4, 8, 24 or 32 bit, uncompressed or bit fields, up to 4096 px) is converted
@@ -123,8 +125,10 @@ file. Without it the client falls back to a loader that can display the picture 
 - `customArtUrl(kind, id)` = `<website>/itemart/<kind>/<id>.png?v=<art>`.
 - `customArtBitmap(kind, id, waiter)` loads the picture once per `(kind:id, version)` and keeps the BitmapData. If
   it has not arrived yet it returns nothing and registers the waiter; on arrival the waiter repaints.
-- `loadArt` (used for icons and den items) has a small shared cache (400 pictures, then it clears) and queues
+- `loadArt` (used for clothing icons and emoji) has a small shared cache (400 pictures, then it clears) and queues
   requests for a URL that is already loading.
+- Den items fetch the picture's bytes once per address (`DenItemHelper.fetchArtBytes`, 100 pictures, then it
+  clears) and decode them into the helper's own `Loader`.
 - Failure at any step means the base item's own art is drawn. A broken picture never breaks the item.
 
 ## 4. Worn clothing: the sticker look
@@ -226,12 +230,16 @@ resizer. The icon always shows the plain picture, even for an item that is worn 
 Code: `DenItemHelper.loadCustomArt`, called first in `init`, `initDS` and `initGeneric`. If the item has a
 picture, the client **does not fetch the base item's file at all**.
 
-`loadArt(url, sprite, 160, standing = true)`:
+The picture's bytes are loaded into the helper's own `Loader` (`loadBytes`), the same place a normal den item's
+SWF goes. The icon, shop preview, den and gift code all look for that `Loader`, and now accept a `Bitmap` in it
+where they expected a `MovieClip`. A picture that does not load or that Flash cannot decode falls back to the base
+item's art.
 - Scale `s = min(1, 160/pw, 160/ph)`. The picture is **fitted inside 160 x 160 and never enlarged**. A
   picture under 160 px is shown at its real size.
-- Anchor: centred horizontally on the item's origin (`x = -int(pw*s/2)`), with the **bottom edge on the origin**
-  (`y = -int(ph*s)`). The origin is the item's floor point where it is placed. So draw the picture with its base
-  at the bottom edge and the object centred left to right.
+- Anchor: the picture's top left is on the item's origin, and `contentWidth`/`contentHeight` report its
+  scaled size. The den (`DenItemHolder.itemLoaded`) then offsets it by `(-w/2, -h)`, as it does every item, so
+  it stands **centred, with its bottom edge on the floor point** where it is placed. So draw the picture with its
+  base at the bottom edge and the object centred left to right. Icons are centred on their bounds.
 - Smoothed bitmap. Alpha is respected.
 - The depth sort offset is set to 0, so it sorts by its origin like a plain item.
 - A hit/portal sprite is added so selecting, moving and picking it up still work.

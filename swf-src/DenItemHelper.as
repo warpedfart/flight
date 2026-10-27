@@ -7,12 +7,16 @@ package loader
    import den.DenItem;
    import den.DenStateItem;
    import den.DenXtCommManager;
+   import flash.display.Bitmap;
    import flash.display.DisplayObject;
    import flash.display.Loader;
    import flash.display.MovieClip;
    import flash.display.Sprite;
    import flash.events.Event;
    import flash.events.MouseEvent;
+   import flash.net.URLLoader;
+   import flash.net.URLRequest;
+   import flash.utils.ByteArray;
    import pet.PetItem;
    import pet.PetManager;
    
@@ -269,8 +273,7 @@ package loader
          {
             return;
          }
-         DenItemServer.instance.addEventListener("OnNewData",handleData,false,0,true);
-         DenItemServer.instance.requestFile(_id);
+         loadBaseArt();
       }
       
       public function initDS(param1:DenStateItem, param2:Function) : void
@@ -301,8 +304,7 @@ package loader
          {
             return;
          }
-         DenItemServer.instance.addEventListener("OnNewData",handleData,false,0,true);
-         DenItemServer.instance.requestFile(_id);
+         loadBaseArt();
       }
       
       public function initGeneric(param1:DenItemDef, param2:Function, param3:int = 0, param4:int = 0, param5:int = 0, param6:String = "", param7:int = -1, param8:String = "", param9:PetItem = null, param10:MannequinData = null) : void
@@ -332,8 +334,7 @@ package loader
          {
             return;
          }
-         DenItemServer.instance.addEventListener("OnNewData",handleData,false,0,true);
-         DenItemServer.instance.requestFile(_id);
+         loadBaseArt();
       }
       
       public function destroy() : void
@@ -353,7 +354,7 @@ package loader
       
       public function loadUniqueImage() : void
       {
-         if(_loader && _loader.content.hasOwnProperty("setUniqueImage"))
+         if(_loader && _loader.content && _loader.content.hasOwnProperty("setUniqueImage"))
          {
             _isUniqueImageItem = true;
             if(_uniqueImageId != "")
@@ -488,7 +489,8 @@ package loader
       public function rebuildMannequinView() : void
       {
          var _loc1_:DenItemDef = DenXtCommManager.getDenItemDef(_defId);
-         if(_loc1_ != null && _loc1_.mannequinAvatarDefId > 0)
+         // a custom picture (a Bitmap) has no mannequin to dress
+         if(_loc1_ != null && _loc1_.mannequinAvatarDefId > 0 && _loader.content is MovieClip)
          {
             _isMannequin = true;
             _mannequinData.setupMannequinAvatarView(_loc1_,MovieClip(_loader.content));
@@ -496,7 +498,27 @@ package loader
       }
       
       // a custom den item's own picture (AJClient.customArtUrl): in place of
-      // the game's art, as its icon and in a den, standing on its spot.
+      // the game's art, as its icon and in a den. it goes into _loader, as the
+      // game's art does (the icon, shop, den and gift code all look for a
+      // Loader first in _sprite), its top left on the origin and fitted in
+      // CUSTOM_ART_SIDE: the den stands it on its spot from contentWidth and
+      // contentHeight, as it does any item. one that does not load (or with
+      // bytes Flash cannot read) is drawn with its base's art instead.
+      private static const CUSTOM_ART_SIDE:int = 160;
+
+      // pictures' bytes by address, fetched once for every icon and den item
+      // showing them (each decodes its own copy). those asked for while one
+      // is fetched wait for it; its URLLoader is kept here meanwhile, or it
+      // could be collected before it finishes. past CUSTOM_ART_MAX it starts
+      // afresh.
+      private static const CUSTOM_ART_MAX:int = 100;
+
+      private static var _artBytes:Object = {};
+
+      private static var _artBytesCount:int = 0;
+
+      private static var _artFetching:Object = {};
+
       private function loadCustomArt() : Boolean
       {
          var _loc1_:String = AJClient.customArtUrl("den",_defId);
@@ -504,18 +526,146 @@ package loader
          {
             return false;
          }
-         var _loc2_:DenItemHelper = this;
          _sortOffset = 0;
-         AJClient.loadArt(_loc1_,_sprite,160,true,function():void
-         {
-            _sprite.addChild(_portalSprite);
-            if(_callback != null)
-            {
-               _callback(_loc2_);
-               _callback = null;
-            }
-         });
+         fetchArtBytes(_loc1_,customArtBytesReceived);
          return true;
+      }
+
+      private static function fetchArtBytes(param1:String, param2:Function) : void
+      {
+         var url:String = param1;
+         if(_artBytes[url] != null)
+         {
+            param2(_artBytes[url]);
+            return;
+         }
+         if(_artFetching[url] != null)
+         {
+            _artFetching[url].waiting.push(param2);
+            return;
+         }
+         var fetch:URLLoader = new URLLoader();
+         _artFetching[url] = {"loader":fetch,"waiting":[param2]};
+         var finish:Function = function(param1:ByteArray):void
+         {
+            var _loc2_:Array = _artFetching[url].waiting;
+            fetch.removeEventListener("complete",fetched);
+            fetch.removeEventListener("ioError",notFetched);
+            fetch.removeEventListener("securityError",notFetched);
+            delete _artFetching[url];
+            if(param1 != null)
+            {
+               if(_artBytesCount >= CUSTOM_ART_MAX)
+               {
+                  _artBytes = {};
+                  _artBytesCount = 0;
+               }
+               _artBytes[url] = param1;
+               _artBytesCount++;
+            }
+            for each(var _loc3_:Function in _loc2_)
+            {
+               try
+               {
+                  _loc3_(param1);
+               }
+               catch(e:Error)
+               {
+               }
+            }
+         };
+         var fetched:Function = function(param1:Event):void
+         {
+            var _loc2_:ByteArray = fetch.data as ByteArray;
+            finish(_loc2_ != null && _loc2_.length > 0 ? _loc2_ : null);
+         };
+         var notFetched:Function = function(param1:Event):void
+         {
+            finish(null);
+         };
+         fetch.dataFormat = "binary";
+         fetch.addEventListener("complete",fetched);
+         fetch.addEventListener("ioError",notFetched);
+         fetch.addEventListener("securityError",notFetched);
+         try
+         {
+            fetch.load(new URLRequest(url));
+         }
+         catch(e:Error)
+         {
+            finish(null);
+         }
+      }
+
+      private function customArtBytesReceived(param1:ByteArray) : void
+      {
+         if(_sprite == null)
+         {
+            return;
+         }
+         if(param1 == null)
+         {
+            loadBaseArt();
+            return;
+         }
+         _loader.contentLoaderInfo.addEventListener("complete",onCustomArtLoaded);
+         _loader.contentLoaderInfo.addEventListener("ioError",onCustomArtFailed);
+         try
+         {
+            _loader.loadBytes(param1);
+         }
+         catch(e:Error)
+         {
+            onCustomArtFailed(null);
+         }
+      }
+
+      private function onCustomArtLoaded(param1:Event) : void
+      {
+         var _loc2_:Bitmap = null;
+         var _loc3_:Number = NaN;
+         _loader.contentLoaderInfo.removeEventListener("complete",onCustomArtLoaded);
+         _loader.contentLoaderInfo.removeEventListener("ioError",onCustomArtFailed);
+         if(_sprite == null)
+         {
+            return;
+         }
+         _loc2_ = _loader.content as Bitmap;
+         if(_loc2_ == null || _loc2_.bitmapData == null)
+         {
+            _loader.unload();
+            loadBaseArt();
+            return;
+         }
+         _loc2_.smoothing = true;
+         _loc3_ = Math.min(1,CUSTOM_ART_SIDE / Math.max(1,_loc2_.bitmapData.width),CUSTOM_ART_SIDE / Math.max(1,_loc2_.bitmapData.height));
+         _loc2_.scaleX = _loc2_.scaleY = _loc3_;
+         _loc2_.x = 0;
+         _loc2_.y = 0;
+         _sprite.addChild(_loader);
+         _sprite.addChild(_portalSprite);
+         if(_callback != null)
+         {
+            _callback(this);
+            _callback = null;
+         }
+      }
+
+      private function onCustomArtFailed(param1:Event) : void
+      {
+         _loader.contentLoaderInfo.removeEventListener("complete",onCustomArtLoaded);
+         _loader.contentLoaderInfo.removeEventListener("ioError",onCustomArtFailed);
+         if(_sprite != null)
+         {
+            loadBaseArt();
+         }
+      }
+
+      // the base item's own file, as for any item without a picture
+      private function loadBaseArt() : void
+      {
+         DenItemServer.instance.addEventListener("OnNewData",handleData,false,0,true);
+         DenItemServer.instance.requestFile(_id);
       }
 
       private function handleData(param1:FileServerEvent) : void

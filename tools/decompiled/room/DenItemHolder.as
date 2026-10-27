@@ -744,8 +744,8 @@ package room
                {
                   if(_loc5_.denItemHelper.displayObject.numChildren > 0)
                   {
-                     _loc3_ = Loader(_loc5_.denItemHelper.displayObject.getChildAt(0)).content as MovieClip;
-                     if(_loc3_.parent.name == "moveToDisabled")
+                     _loc3_ = _loc5_.denItemHelper.displayObject.getChildAt(0) is Loader ? Loader(_loc5_.denItemHelper.displayObject.getChildAt(0)).content as MovieClip : null;
+                     if(_loc3_ != null && _loc3_.parent.name == "moveToDisabled")
                      {
                         if(_loc3_.hitTestPoint(param1.x,param1.y,true))
                         {
@@ -1626,10 +1626,10 @@ package room
             }
             if(_loc6_.parent)
             {
-               _loc5_ = Loader(_loc6_.getChildAt(0));
+               _loc5_ = _loc6_.getChildAt(0) as Loader;
                if(_loc5_)
                {
-                  _loc3_ = MovieClip(_loc5_.content);
+                  _loc3_ = _loc5_.content as MovieClip;
                   if(_loc3_)
                   {
                      if(_loc3_.hasOwnProperty("handleMouse"))

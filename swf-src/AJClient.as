@@ -836,6 +836,8 @@ package
          _loc6_ = _artBitmaps[_loc4_] = {"bmp":null,"art":_loc5_,"waiting":param3 != null ? [param3] : []};
          var _loc7_:Loader = new Loader();
          var _loc8_:Object = _loc6_;
+         // kept while it loads, or it could be collected first
+         _loc8_.loader = _loc7_;
          _loc7_.contentLoaderInfo.addEventListener("complete",function(param1:Event):void
          {
             if(_loc7_.content is Bitmap)
@@ -860,10 +862,12 @@ package
                }
             }
             _loc8_.waiting = [];
+            _loc8_.loader = null;
          });
          _loc7_.contentLoaderInfo.addEventListener("ioError",function(param1:Event):void
          {
             _loc8_.waiting = [];
+            _loc8_.loader = null;
          });
          // its pixels are read (worn as a sticker or a texture): from another
          // address that takes the server's /crossdomain.xml
@@ -893,6 +897,10 @@ package
       private static var _artCacheCount:int = 0;
 
       private static var _artLoading:Object = {};
+
+      // the loaders still fetching, by address: kept, or one could be
+      // collected before it finishes and its waiters left empty
+      private static var _artLoaders:Object = {};
 
       public static function loadArt(param1:String, param2:Sprite, param3:int, param4:Boolean, param5:Function = null) : void
       {
@@ -934,6 +942,7 @@ package
             shared.contentLoaderInfo.removeEventListener("complete",loaded);
             shared.contentLoaderInfo.removeEventListener("ioError",notLoaded);
             delete _artLoading[url];
+            delete _artLoaders[url];
             try
             {
                _loc2_ = shared.content is Bitmap ? Bitmap(shared.content).bitmapData : null;
@@ -960,11 +969,7 @@ package
             }
             _artCache[url] = _loc2_;
             _artCacheCount++;
-            place(_loc2_);
-            for each(var _loc5_:Object in _loc3_)
-            {
-               _loc5_.place(_loc2_);
-            }
+            placeEach(place,_loc3_,_loc2_);
          };
          var notLoaded:Function = function(param1:Event):void
          {
@@ -972,15 +977,36 @@ package
             shared.contentLoaderInfo.removeEventListener("complete",loaded);
             shared.contentLoaderInfo.removeEventListener("ioError",notLoaded);
             delete _artLoading[url];
-            place(null);
-            for each(var _loc3_:Object in _loc2_)
-            {
-               _loc3_.place(null);
-            }
+            delete _artLoaders[url];
+            placeEach(place,_loc2_,null);
          };
+         _artLoaders[url] = shared;
          shared.contentLoaderInfo.addEventListener("complete",loaded);
          shared.contentLoaderInfo.addEventListener("ioError",notLoaded);
          shared.load(new URLRequest(url),new LoaderContext(true));
+      }
+
+      // a loaded picture (or null) to the first asker and each waiting one:
+      // one whose sprite has gone, or that throws, does not stop the rest
+      private static function placeEach(param1:Function, param2:Array, param3:BitmapData) : void
+      {
+         try
+         {
+            param1(param3);
+         }
+         catch(e:Error)
+         {
+         }
+         for each(var _loc4_:Object in param2)
+         {
+            try
+            {
+               _loc4_.place(param3);
+            }
+            catch(e:Error)
+            {
+            }
+         }
       }
 
       private static function loadArtUncached(param1:String, param2:Sprite, param3:int, param4:Boolean, param5:Function = null) : void
