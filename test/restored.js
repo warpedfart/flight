@@ -323,6 +323,33 @@ const run = async () => {
   // approved by nobody, that one
   assert.deepStrictEqual((await panel("masterpieces", undefined, admin)).data.approved.map(entry => [entry.id, entry.approvedBy]), [[second.uuid, null]]);
 
+  // --- the Journey Book: its pages and facts, a bit a fact, and a finished page's den item
+  a.xt("gl", roomId, 53);
+  const bookPages = await a.untilXt("gl");
+  assert.deepStrictEqual(bookPages.slice(8, 11), ["14", "1185", "912"]); // 14 pages, Bahari Bay first
+  assert.strictEqual(bookPages[bookPages.indexOf("6189") + 1], "30381"); // the Call of the Alphas page, by the party's name
+  a.xt("gl", roomId, 54);
+  const bookFacts = await a.untilXt("gl");
+  assert.strictEqual(bookFacts[8], "167");
+  const setVar = async (id, bit) => {
+    a.xt("zs", roomId, id, bit, 1);
+    return Number((await a.untilXt("zs"))[3]);
+  };
+  // Kani Cove's page (var 288): ten facts, bits 0 to 9. each found one is a bit more, not the bit's number.
+  assert.strictEqual(await setVar(288, 3), 1 << 3);
+  assert.strictEqual(await setVar(288, 0), (1 << 3) | 1);
+  assert.strictEqual(await setVar(288, 31), (1 << 3) | 1); // its gift: not before every fact is found
+  let found = 0;
+  for (let bit = 0; bit < 10; bit++) {
+    found = await setVar(288, bit);
+  }
+  assert.strictEqual(found, 1023);
+  a.xt("zs", roomId, 288, 31, 1);
+  const kept = await a.untilXt("di");
+  assert.ok(kept.includes("696")); // the Kani Cove page's den item
+  assert.strictEqual(Number((await a.untilXt("zs"))[3]), (1023 | (2 ** 31)) >>> 0);
+  assert.strictEqual(await setVar(288, 31), (1023 | (2 ** 31)) >>> 0); // and only once
+
   a.socket.destroy();
   b.socket.destroy();
   c2.socket.destroy();

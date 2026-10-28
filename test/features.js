@@ -144,6 +144,23 @@ const run = async () => {
   await a.untilXt("ac");
   await a.nextXt("il");
 
+  // --- the admin tints an animal as the game's mud does (lib/tints.js), and it stays
+  const MUD = String((255 << 24 | 0x5C4033) | 0);
+  assert.match((await panel("account", {username: "Ann", action: "tint", tint: "mud"}, admin)).data.ok, /tinted mud/);
+  const annId = (await a.untilBlend(MUD))[2];
+  assert.strictEqual((await b.untilBlend(MUD))[2], annId);
+  // her own game says the mud is wearing off: everyone is told it is not
+  a.send(`<msg t='sys'><body action='pubMsg' r='${roomId}'><txt><![CDATA[0%8]]></txt></body></msg>`);
+  assert.strictEqual((await b.untilBlend(MUD))[2], annId);
+  assert.strictEqual((await a.untilBlend(MUD))[2], annId);
+  assert.match((await panel("account", {username: "Ann", action: "tint", tint: "glitter"}, admin)).data.error, /No such tint/);
+  assert.strictEqual((await panel("account?username=Ann", undefined, admin)).data.account.tint, "mud");
+  assert.match((await panel("account", {username: "Ann", action: "tint", tint: ""}, admin)).data.ok, /tint is off/);
+  assert.strictEqual((await b.untilBlend(0))[2], annId);
+  // untinted, her game's own colour goes to the others again
+  a.send(`<msg t='sys'><body action='pubMsg' r='${roomId}'><txt><![CDATA[123%8]]></txt></body></msg>`);
+  assert.strictEqual((await b.untilBlend(123))[2], annId);
+
   // --- minigames: which game is which, a game in a window over the room, gems, a full-screen game
   a.xt("mi", roomId, 15, 4, 999999);
   const gameInfo = await a.nextXt("mi");
@@ -451,11 +468,11 @@ const run = async () => {
   assert.deepStrictEqual((await b.nextXt("eg")).slice(2), [pushed[2], "0"]);
   b.xt("ed", own[4], pushed[2]);
   assert.deepStrictEqual((await b.nextXt("ed")).slice(2), ["1", "1", pushed[2]]);
-  b.xt("ei", own[4], 2); // ben takes Jam-A-Grams from nobody now
+  b.xt("ei", own[4], 0); // ben takes Jam-A-Grams from nobody now (the inbox's first button)
   assert.deepStrictEqual((await b.nextXt("ei")).slice(2), ["1"]);
   a.xt("es", own[4], "Ben", cards[9], stamps[9], 2, "again", 0, 0, 0);
   assert.deepStrictEqual((await a.nextXt("es")).slice(2), ["-2"]);
-  b.xt("ei", own[4], 0);
+  b.xt("ei", own[4], 2); // and from everyone again
   await b.nextXt("ei");
 
   // secret valentines are off (lib/ecards.js): one asked for is refused
@@ -644,6 +661,11 @@ const run = async () => {
   const rooms = (await panel("messages", undefined, admin)).data.rooms;
   assert.deepStrictEqual(rooms.find(room => room.name === "denAnn"), {name: "denAnn", title: "Ann's Den", players: 2});
   assert.strictEqual((await panel("announce", {text: "nobody there", room: "no.such#1"}, admin)).data.ok, "Shown to 0 players.");
+  // a picture with it is fetched by the server (lib/announcemedia.js), never
+  // from this machine or its network; nothing is announced when it fails
+  const privateLink = await panel("announce", {text: "look", media: "http://127.0.0.1/logo.png"}, admin);
+  assert.deepStrictEqual([privateLink.status, privateLink.data.error], [400, "The picture: That link is to a private address, which cannot be used."]);
+  assert.strictEqual((await panel("announce", {media: "not a link"}, admin)).status, 400);
 
   // gifts come as Jam-A-Grams from Animal Jam HQ. diamonds: the client is
   // told a code was redeemed, asks for its cards and opens a gift popup.
