@@ -630,6 +630,15 @@
                 <div class="row" style="margin-top:8px"><button type="button" data-action="badges">Set</button></div>
                 <div class="row" style="margin-top:8px" title="A guide's name tag and chat bubble, seen by everyone; from their next login">
                   <button type="button" data-action="guide" id="guide-toggle"></button></div>
+                <div class="row" style="margin-top:8px" title="A colour on their animal, as the game's mud gives, seen by everyone and kept until taken off">
+                  <select id="tint-select" aria-label="Tint">
+                    <option value="">No tint</option>
+                    <option value="mud">Mud</option>
+                    <option value="ice">Ice</option>
+                    <option value="fire">Fire</option>
+                    <option value="acid">Acid</option>
+                  </select>
+                  <button type="button" data-action="tint">Set tint</button></div>
                 <div class="row" style="margin-top:8px" title="Players link their Discord themselves, on the account page">
                   <span class="hint" id="discord-name"></span>
                   <button type="button" data-action="discord">Unlink Discord</button></div>
@@ -1112,6 +1121,8 @@
           <section>
             <h2>Announcement</h2>
             <textarea id="announce-text" rows="4" maxlength="300" aria-label="Announcement"></textarea>
+            <input id="announce-media" type="url" placeholder="Picture or GIF link (optional)" aria-label="Picture or GIF link" style="width:100%;margin-top:8px" autocomplete="off" spellcheck="false">
+            <p class="hint" style="margin:6px 0 0">A link to a picture (PNG, JPEG, GIF, WebP) or a GIF page (Tenor, Giphy, Imgur). The server keeps a copy, so players never load it from the other site.</p>
             <div class="send-row">
               <select id="announce-room" aria-label="Who sees it"></select>
               <button class="primary" type="button" id="announce-send">Send</button>
@@ -1859,6 +1870,7 @@
         }));
         $("temp-two-step-off").disabled = !current || !current.twoStep;
         $("guide-toggle").textContent = current && current.guide ? "Remove guide" : "Make guide";
+        $("tint-select").value = current ? current.tint || "" : "";
         $("discord-name").textContent = current && current.discord ? `Discord: ${current.discord}` : "No Discord linked";
         $("admin-dashboard-access").textContent = current && current.adminDashboardAccess ? "Remove Discord dashboard access" : "Allow Discord dashboard access";
         $("admin-dashboard-access").disabled = !current || (!current.discord && !current.adminDashboardAccess);
@@ -2050,6 +2062,7 @@
           case "permissions": return permissionChoices();
           case "adminDashboardAccess": return {on: !(current || {}).adminDashboardAccess};
           case "guide": return {on: !(current || {}).guide};
+          case "tint": return {tint: $("tint-select").value};
           case "tempPassword": return {twoStepOff: $("temp-two-step-off").checked};
           case "message": return {text: $("message-text").value};
           case "gems": return {amount: numberFrom("gems-amount")};
@@ -2650,10 +2663,17 @@
       });
 
       $("announce-send").addEventListener("click", async () => {
-        const result = await api("announce", {text: $("announce-text").value, room: $("announce-room").value});
+        const media = $("announce-media").value.trim();
+        $("announce-send").disabled = true;
+        if (media) {
+          setStatus($("announce-status"), "Fetching the picture...");
+        }
+        const result = await api("announce", {text: $("announce-text").value, room: $("announce-room").value, media});
+        $("announce-send").disabled = false;
         setStatus($("announce-status"), result.data.ok || result.data.error || "That did not work.", !result.ok);
         if (result.ok) {
           $("announce-text").value = "";
+          $("announce-media").value = "";
         }
       });
 

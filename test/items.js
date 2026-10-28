@@ -50,11 +50,14 @@ const waitForStep = async step => {
   }
 };
 
+// a body that is a Buffer is sent as it is (an upload), anything else as JSON.
 const webSession = () => {
   let cookie = "";
   return async (urlPath, body) => {
     const headers = {cookie};
-    const options = body === undefined ? {headers} : {method: "POST", headers: {...headers, "Content-Type": "application/json"}, body: JSON.stringify(body)};
+    const options = body === undefined ? {headers}
+      : Buffer.isBuffer(body) ? {method: "POST", headers, body}
+        : {method: "POST", headers: {...headers, "Content-Type": "application/json"}, body: JSON.stringify(body)};
     const res = await fetch(`${BASE}${urlPath}`, options);
     const set = res.headers.get("set-cookie");
     if (set) {
@@ -604,6 +607,25 @@ const first = async () => {
   const moderatorRules = (await dev("/mod/api/items/wear-rules?q=Gold%20Crown")).data;
   assert.deepStrictEqual(moderatorRules.results.find(entry => entry.id === 50000).blockedTypes, [1]);
   assert.strictEqual(byId(await pack(1000), 50000).avatarUseFlags, "9007199254740990");
+
+  // theatre videos (lib/theatrevideos.js) are uploaded by admins, not moderators
+  const fakeVideo = Buffer.concat([Buffer.from([0, 0, 0, 16]), Buffer.from("ftypisom"), Buffer.alloc(20)]);
+  assert.strictEqual((await dev("/mod/api/theatrevideos")).status, 403);
+  assert.strictEqual((await dev("/mod/api/theatrevideos?name=Moderator%20Video", fakeVideo)).status, 403);
+  assert.match((await admin("/admin/api/account", {username: "Dev", action: "role", role: "admin"})).data.ok, /admin/i);
+  assert.ok((await dev("/mod/api/me")).data.permissions.includes("theatre.upload"));
+  const uploaded = await dev("/mod/api/theatrevideos?name=Staff%20Video", fakeVideo);
+  assert.match(uploaded.data.ok || "", /"Staff Video" is uploaded/, JSON.stringify(uploaded));
+  assert.match((await dev("/mod/api/theatrevideos?name=Not%20A%20Video", Buffer.from("hello there"))).data.error, /not a video/);
+  const listed = (await dev("/mod/api/theatrevideos")).data.videos;
+  assert.deepStrictEqual(listed.map(video => [video.name, video.bytes]), [["Staff Video", fakeVideo.length]]);
+  assert.strictEqual((await dev(`/mod/api/theatrevideos?play=${listed[0].id}`)).status, 200);
+  assert.match((await dev(`/mod/api/theatrevideos?rename=${listed[0].id}&name=Renamed%20Video`, Buffer.alloc(0))).data.ok, /is now "Renamed Video"/);
+  const renamed = (await admin("/admin/api/theatre")).data.videos;
+  assert.deepStrictEqual(renamed.map(video => video.name), ["Renamed Video"]);
+  assert.match((await dev(`/mod/api/theatrevideos?delete=${renamed[0].id}`, Buffer.alloc(0))).data.ok, /is deleted/);
+  assert.deepStrictEqual((await dev("/mod/api/theatrevideos")).data.videos, []);
+  assert.match((await admin("/admin/api/account", {username: "Dev", action: "role", role: "moderator"})).data.ok, /moderator/);
 
   // written down under the maker's name
   const log = (await admin("/admin/api/moderators")).data.log.map(entry => `${entry.by} ${entry.action} ${entry.detail}`);

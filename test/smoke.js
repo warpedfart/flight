@@ -188,6 +188,9 @@ const run = async () => {
   assert.deepStrictEqual((await a.nextXt("xls")).slice(2), ["0"]); // when offline buddies were last seen: none are offline
   a.xt("br", roomId, "Bob");
   assert.deepStrictEqual((await a.nextXt("br")).slice(2), ["jamaa_township.room_main#1", "Jamaa Township", "0", "0"]); // last 0: "go to" allowed
+  // the world map's number on a land: her buddies there (Bob), not everybody and not herself
+  a.xt("rc", roomId);
+  assert.deepStrictEqual((await a.nextXt("rc")).slice(2), ["1", "jamaa_township.room_main#1", "1"]);
   a.xt("bb", roomId, "Bob");
   assert.deepStrictEqual((await a.nextXt("bb")).slice(2), ["Bob", "1"]);
   b.xt("bi", roomId, "Alice");
@@ -197,6 +200,8 @@ const run = async () => {
   a.xt("bd", roomId, "Bob");
   assert.deepStrictEqual((await a.nextXt("bd")).slice(2), ["Bob"]);
   assert.deepStrictEqual((await b.nextXt("bd")).slice(2), ["Alice"]);
+  a.xt("rc", roomId);
+  assert.deepStrictEqual((await a.nextXt("rc")).slice(2), ["0"]); // no buddies, no number
 
   b.socket.destroy();
   assert.deepStrictEqual((await a.nextXt("ar")).slice(1), [roomId, String(bobId)]);
@@ -252,6 +257,9 @@ const run = async () => {
   await a.nextXt("il");
   await c.nextXt("ac");
   await c.nextXt("il");
+  // the den button: Alice came in (the game takes her off herself), then Carol, a visitor and a doorbell
+  assert.deepStrictEqual(a.denCounts.map(fields => fields.slice(2)), [["1", "1", "Alice"], ["2", "1", "Carol"]]);
+  assert.deepStrictEqual(c.denCounts, []); // only the den's owner is told
 
   a.xt("gl", denId, 200);
   const names = await a.nextXt("gl");

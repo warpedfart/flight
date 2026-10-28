@@ -20,6 +20,10 @@ class GameClient {
     this.localAddress = localAddress;
     this.queue = [];
     this.varUpdates = [];
+    // the den button's count of people in the player's den ("drc"), sent
+    // whenever somebody comes or goes: set aside, for a test to look at
+    this.denCounts = [];
+    this.blends = [];
     this.askedForGames = 0;
     this.unaskedGames = [];
     this.waiters = [];
@@ -69,6 +73,15 @@ class GameClient {
   // without being asked ("mi"). is this message that, rather than the
   // answer to a request of ours?
   unasked(fields) {
+    if (fields[0] === "drc") {
+      this.denCounts.push(fields);
+      return true;
+    }
+    // a tint on an animal (lib/tints.js), told again every few seconds
+    if (fields[0] === "uc" && fields[4] === "8") {
+      this.blends.push(fields);
+      return true;
+    }
     if (fields[0] !== "mi") {
       return false;
     }
@@ -78,6 +91,19 @@ class GameClient {
     }
     this.askedForGames--;
     return false;
+  }
+
+  // waits for a tint: the next "uc" of chat type 8 with this colour,
+  // passing over others (an old one told again).
+  async untilBlend(color) {
+    for (;;) {
+      const found = this.blends.findIndex(fields => fields[3] === String(color));
+      if (found >= 0) {
+        return this.blends.splice(found, 1)[0];
+      }
+      this.blends = [];
+      this.unasked((await this.next()).split("%").slice(2, -1));
+    }
   }
 
   next() {

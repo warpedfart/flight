@@ -873,7 +873,13 @@ package avatar
             {
                if(msgId != 22367 && msgId != 22368 && msgId != 22369 && msgId != 22370)
                {
-                  new SBAJOkPopup(GuiManager.guiLayer,adminMsg);
+                  // one with a picture (the server's lib/announcemedia.js) is
+                  // shown by the game's page, which can show a GIF moving:
+                  // here only when the page cannot.
+                  if(!(data.length > 3 && pageAnnouncement(adminMsg,String(data[3]))))
+                  {
+                     new SBAJOkPopup(GuiManager.guiLayer,adminMsg);
+                  }
                }
                else
                {
@@ -883,10 +889,24 @@ package avatar
                   },_drainPopupDelay);
                }
             }
-            _chatHist.addPrivateMessage(LocalizationManager.translateIdOnly(15964),null,adminMsg);
+            _chatHist.addPrivateMessage(LocalizationManager.translateIdOnly(15964),null,adminMsg != "" ? adminMsg : "(a picture)");
          }
       }
-      
+
+      // the announcement and its picture to the game's page (ajAnnouncement
+      // in game.html); true when the page has shown them.
+      private static function pageAnnouncement(param1:String, param2:String) : Boolean
+      {
+         try
+         {
+            return ExternalInterface.available && ExternalInterface.call("ajAnnouncement",param1,param2) === true;
+         }
+         catch(e:Error)
+         {
+         }
+         return false;
+      }
+
       private static function refreshPage(param1:Object) : void
       {
          if(param1["status"])

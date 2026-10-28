@@ -237,6 +237,53 @@
       .aj-box-close:hover {
         background: radial-gradient(circle at 50% 35%, #ff8f74, #d93d22 70%);
       }
+      /* an announcement with a picture (ajAnnouncement): over the whole
+         stage, the game dimmed behind it, as the game's own popups do */
+      #announcement {
+        --s: 1;
+        --px: calc(var(--s) * 1px);
+        position: fixed;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.3);
+        font-family: "DigitalDelivery", Arial, Helvetica, sans-serif;
+      }
+      #announcement[hidden], #announcement [hidden] {
+        display: none !important;
+      }
+      #announcement .aj-box {
+        position: relative;
+        width: calc(440 * var(--px));
+        max-height: calc(530 * var(--px));
+        overflow: auto;
+        text-align: center;
+      }
+      #announcement h2 {
+        margin-right: 0;
+      }
+      #announcement-text {
+        margin: 0 0 calc(10 * var(--px));
+        font: 400 calc(15 * var(--px)) / 1.35 Arial, Helvetica, sans-serif;
+        color: #3d2716;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+      }
+      #announcement-text:empty {
+        display: none;
+      }
+      #announcement-media img, #announcement-media video {
+        display: block;
+        margin: 0 auto;
+        max-width: 100%;
+        border: calc(3 * var(--px)) solid #c9a86a;
+        border-radius: calc(10 * var(--px));
+        background: #fff;
+      }
+      #announcement .own-video-buttons {
+        margin-top: calc(12 * var(--px));
+      }
       .aj-box-said {
         min-height: calc(15 * var(--px));
         margin: calc(8 * var(--px)) 0 0;
@@ -272,6 +319,16 @@
         </div>
         <p id="own-video-said" class="aj-box-said" role="status"></p>
       </form>
+    </div>
+    <div id="announcement" hidden>
+      <div class="aj-box" role="alertdialog" aria-labelledby="announcement-title" aria-describedby="announcement-text">
+        <h2 id="announcement-title">Announcement</h2>
+        <p id="announcement-text"></p>
+        <div id="announcement-media"></div>
+        <div class="own-video-buttons">
+          <button type="button" id="announcement-ok" class="aj-button go">OK</button>
+        </div>
+      </div>
     </div>
     <script>
       "use strict";
@@ -380,6 +437,40 @@
         ownVideo.inTheatre(theatreScreen !== null);
         browserPage.inTheatre(theatreScreen !== null);
         roomFile.inTheatre(theatreScreen !== null);
+        leftTheatre(theatreScreen === null);
+      }
+
+      // out of the theatre, what staff play for the room stops: hidden, it
+      // played on, heard in every room after. back in, the server says
+      // again what plays there (and how far in). a screen gone only for a
+      // moment, with the player still in the room, is waited out, paused.
+      const AWAY_MS = 3000;
+      let away = true; // the game starts out of the theatre
+      let awayTimer = 0;
+      let pausedYouTube = false;
+      function youTube(command) {
+        if (theatreVideo.hasAttribute("src") && theatreVideo.contentWindow) {
+          theatreVideo.contentWindow.postMessage(JSON.stringify({event: "command", func: command, args: []}), "https://www.youtube-nocookie.com");
+        }
+      }
+      function leftTheatre(gone) {
+        if (gone === away) {
+          return;
+        }
+        away = gone;
+        clearTimeout(awayTimer);
+        if (gone) {
+          pausedYouTube = theatreVideo.hasAttribute("src");
+          youTube("pauseVideo");
+          awayTimer = setTimeout(() => {
+            pausedYouTube = false;
+            ajTheatreVideo("");
+          }, AWAY_MS);
+        }
+        else if (pausedYouTube) {
+          pausedYouTube = false;
+          youTube("playVideo");
+        }
       }
 
       // the covered cells as rectangles: runs along each row, and a run
@@ -493,6 +584,108 @@
       }
       window.addEventListener("resize", placeTheatre);
 
+      // an announcement with a picture (the server's lib/announcemedia.js),
+      // from UserCommXtCommManager in the patched SWF, which shows it itself
+      // when this answers anything but true. one at a time: any sent while
+      // one is open wait for its OK.
+      const announcement = (() => {
+        const box = document.getElementById("announcement");
+        const media = document.getElementById("announcement-media");
+        const MEDIA = /^\/announce-media\/[0-9a-f]{16}\.(png|jpg|gif|webp|mp4|webm)$/;
+        const MAX_W = 400; // stage pixels inside the box
+        const MAX_H = 300;
+        const GROW = 2; // a small picture is shown up to this many times bigger
+        const waiting = [];
+        let size = null; // the picture's own [width, height], once known
+
+        // the picture as big as the box allows, a small one made bigger
+        function fit(scale) {
+          const element = media.firstElementChild;
+          if (!element || !size) {
+            return;
+          }
+          const [w, h] = size;
+          const times = Math.min(MAX_W / w, MAX_H / h, GROW);
+          element.style.width = `${Math.round(w * times * scale)}px`;
+          element.style.height = `${Math.round(h * times * scale)}px`;
+        }
+
+        function place() {
+          if (box.hidden) {
+            return;
+          }
+          const scale = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+          box.style.left = `${(window.innerWidth - STAGE_W * scale) / 2}px`;
+          box.style.top = `${(window.innerHeight - STAGE_H * scale) / 2}px`;
+          box.style.width = `${STAGE_W * scale}px`;
+          box.style.height = `${STAGE_H * scale}px`;
+          box.style.setProperty("--s", String(scale));
+          fit(scale);
+        }
+
+        function show([text, path]) {
+          document.getElementById("announcement-text").textContent = text;
+          size = null;
+          let element;
+          if (/\.(mp4|webm)$/.test(path)) {
+            // a GIF site's GIF: silent and looping, as a GIF is
+            element = document.createElement("video");
+            element.muted = true;
+            element.loop = true;
+            element.autoplay = true;
+            element.playsInline = true;
+            element.addEventListener("loadedmetadata", () => {
+              size = [element.videoWidth || MAX_W, element.videoHeight || MAX_H];
+              place();
+            });
+          }
+          else {
+            element = document.createElement("img");
+            element.alt = "";
+            element.addEventListener("load", () => {
+              size = [element.naturalWidth || MAX_W, element.naturalHeight || MAX_H];
+              place();
+            });
+          }
+          element.addEventListener("error", () => element.remove());
+          element.src = path;
+          media.replaceChildren(element);
+          box.hidden = false;
+          place();
+          document.getElementById("announcement-ok").focus();
+        }
+
+        document.getElementById("announcement-ok").addEventListener("click", () => {
+          media.replaceChildren();
+          if (waiting.length > 0) {
+            show(waiting.shift());
+            return;
+          }
+          box.hidden = true;
+          flashContent.focus();
+        });
+        window.addEventListener("resize", place);
+
+        return {
+          add(text, path) {
+            if (!MEDIA.test(path)) {
+              return false;
+            }
+            if (box.hidden) {
+              show([text, path]);
+            }
+            else {
+              waiting.push([text, path]);
+            }
+            return true;
+          },
+        };
+      })();
+
+      function ajAnnouncement(text, path) {
+        return announcement.add(String(text || ""), String(path || ""));
+      }
+
       function ajPrint(imageData) {
         window.ipc.sendToHost("printImage", imageData);
       }
@@ -501,6 +694,9 @@
       // call. The page merely displays it over the theatre's screen area.
       function ajTheatreVideo(videoId) {
         const id = String(videoId || "");
+        // the server's word is newer than what played before the player left
+        clearTimeout(awayTimer);
+        pausedYouTube = false;
         roomFile.stop();
         const file = /^file:([0-9a-f]{16}):(\d{1,12})$/.exec(id);
         if (file) {
@@ -518,7 +714,7 @@
           browserPage.roomVideo(false);
           return;
         }
-        theatreVideo.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`;
+        theatreVideo.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
         theatreVideo.classList.add("visible");
         // what staff play for the room comes first; the player's own waits.
         ownVideo.roomVideo(true);
