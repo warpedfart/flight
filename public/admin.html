@@ -430,6 +430,15 @@
       <div class="page-title"><h1 id="page-name">Overview</h1></div>
 
       <div data-view="overview">
+        <section id="game-switch">
+          <h2>The game</h2>
+          <p class="hint">Close it for maintenance, such as work on roles, while the server keeps running: players are refused at sign-in with the game's own "down for maintenance" message, and those playing are told and put out. Staff with 2FA can still sign in. It stays closed through a restart until it is opened again.</p>
+          <div class="toolbar">
+            <strong id="game-state"></strong>
+            <button type="button" id="game-toggle"></button>
+          </div>
+          <p class="status" id="game-status" role="status"></p>
+        </section>
         <div class="tiles" id="tiles"></div>
         <div class="columns">
           <section>
@@ -709,6 +718,7 @@
                     <option value="helper">Helper</option>
                     <option value="moderator">Moderator</option>
                     <option value="admin">Admin</option>
+                    <option value="owner">Owner (the owner dashboard too, from anywhere)</option>
                   </select>
                   <button type="button" data-action="role">Set role</button>
                   <button type="button" data-action="clearDen">Clear den</button>
@@ -1370,6 +1380,10 @@
           return row;
         }));
         $("no-players").hidden = data.players.length > 0;
+        $("game-state").textContent = data.server.gameClosed ? "Closed: only staff can sign in." : "Open to everyone.";
+        $("game-toggle").textContent = data.server.gameClosed ? "Open the game" : "Close the game";
+        $("game-toggle").className = data.server.gameClosed ? "primary" : "danger";
+        $("game-toggle").dataset.closed = data.server.gameClosed ? "1" : "";
         const yesNo = value => (value ? "Yes" : "No");
         const facts = [
           ["Address", data.server.address],
@@ -3800,9 +3814,25 @@
         }
       });
 
+      $("game-toggle").addEventListener("click", async () => {
+        const closing = !$("game-toggle").dataset.closed;
+        if (closing && !confirm("Close the game? Everyone playing who is not staff is put out, and nobody else can sign in until it is opened again.")) {
+          return;
+        }
+        const result = await api("game", {closed: closing});
+        setStatus($("game-status"), result.data.ok || result.data.error || "That did not work.", !result.ok);
+        const overview = await api("overview");
+        if (overview.ok) {
+          renderOverview(overview.data);
+        }
+      });
+
       const showPanel = () => {
         $("gate").hidden = true;
         $("panel").hidden = false;
+        // an Owner signed in through the staff dashboard: the admin
+        // password is not theirs to change
+        document.querySelector('nav button[data-tab="settings"]').hidden = Boolean(state && state.owner);
         if (!applyHash()) {
           showTab(tab);
         }

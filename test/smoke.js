@@ -484,7 +484,7 @@ const run = async () => {
   assert.strictEqual(dashboardSlash.headers.get("location"), "/dashboard");
   assert.match(await (await fetch(`${BASE}/dashboard/admin`)).text(), /Server admin/);
   assert.match(await (await fetch(`${BASE}/dashboard/staff`)).text(), /Moderators/);
-  assert.deepStrictEqual((await panel("state")).data, {needsSetup: true, needsSetupCode: false, signedIn: false, discordLogin: false});
+  assert.deepStrictEqual((await panel("state")).data, {needsSetup: true, needsSetupCode: false, signedIn: false, discordLogin: false, owner: null});
   assert.strictEqual((await panel("overview")).status, 401);
   assert.strictEqual((await panel("login", {password: "anything"})).status, 401);
   assert.strictEqual((await panel("setup", {password: "short"})).status, 400);
