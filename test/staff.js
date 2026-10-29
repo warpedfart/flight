@@ -456,6 +456,18 @@ const run = async () => {
   // the rest is theirs, written down under their name
   assert.match((await ownerPage("/admin/api/account", {username: "Pip", action: "tint", tint: "mud"})).data.ok, /tinted mud/);
   assert.ok((await admin("/admin/api/moderators")).data.log.some(entry => entry.by === "Hal" && entry.action === "tinted mud" && entry.target === "Pip"));
+  // the staff dashboard's Owner page (public/mod.html), by the addresses it uses
+  assert.match((await ownerPage("/dashboard/api/admin/account", {username: "Pip", action: "role", role: "helper"})).data.ok, /Pip is now a helper/);
+  assert.match((await ownerPage("/dashboard/api/admin/account", {username: "Pip", action: "role", role: "none"})).data.ok, /no staff role/);
+  assert.match((await ownerPage("/dashboard/api/admin/account", {username: "Pip", action: "badges", badges: ["contributor"]})).data.ok, /Pip has: Contributor/);
+  assert.deepStrictEqual((await ownerPage("/dashboard/api/admin/account?username=Pip")).data.account.badges, ["contributor"]);
+  assert.match((await ownerPage("/dashboard/api/admin/account", {username: "Pip", action: "badges", badges: []})).data.ok, /no badges/);
+  const ownerCodes = await ownerPage("/dashboard/api/admin/invites", {count: 2, days: 1, note: "from the staff panel"});
+  assert.strictEqual(ownerCodes.data.codes.length, 2);
+  const ownerInvite = ownerCodes.data.invites.find(invite => invite.note === "from the staff panel" && invite.created_by === "Hal");
+  assert.ok(ownerInvite);
+  assert.strictEqual((await ownerPage("/dashboard/api/admin/invites/revoke", {id: ownerInvite.id})).status, 200);
+  assert.strictEqual((await ownerPage("/dashboard/api/admin/invites")).status, 200);
 
   // --- the game closed for maintenance: players are put out and refused, staff are not
   const closed = await ownerPage("/admin/api/game", {closed: true});

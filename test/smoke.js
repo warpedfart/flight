@@ -497,6 +497,23 @@ const run = async () => {
   assert.strictEqual((await panel("state", undefined, admin)).data.signedIn, true);
   assert.strictEqual((await panel("account", {username: "Alice", action: "kick"}, admin, {Origin: "http://evil.example"})).status, 403);
 
+  // --- the game's files (lib/gamefiles.js): looked up, and one saved
+  assert.strictEqual((await panel("gamefiles")).status, 401);
+  assert.ok((await panel("gamefiles", undefined, admin)).data.kinds.find(kind => kind.kind === "party").count > 0);
+  const tradingParty = (await panel("gamefiles?q=trading%20party&kind=party", undefined, admin)).data;
+  assert.deepStrictEqual(tradingParty.results.map(result => `${result.kind}:${result.id}`), ["party:6"]);
+  const partyEntry = (await panel("gamefiles/entry?kind=party&id=6", undefined, admin)).data;
+  assert.deepStrictEqual(partyEntry.links.map(link => `${link.kind}:${link.id}`), ["room:515"]);
+  assert.deepStrictEqual(partyEntry.files.map(file => file.path), ["media/1233"]);
+  const byHash = (await panel(`gamefiles?q=${partyEntry.files[0].hashed.split("/").pop()}`, undefined, admin)).data;
+  assert.strictEqual(byHash.file.path, "media/1233");
+  assert.ok(byHash.results.some(result => result.kind === "party" && result.id === 6));
+  const savedPack = await fetch(`${BASE}/admin/api/gamefiles/file?path=defPacks/1047`, {headers: {Cookie: admin}});
+  assert.strictEqual(savedPack.status, 200);
+  assert.match(savedPack.headers.get("content-disposition"), /filename="defPacks-1047\.bin"/);
+  assert.strictEqual((await panel("gamefiles/file?path=../config.js", undefined, admin)).status, 404);
+  assert.ok((await panel("gamefiles/problems", undefined, admin)).data.brokenLinks.some(broken => broken.from.kind === "party" && broken.to.id === 228));
+
   const seen = (await panel("overview", undefined, admin)).data;
   assert.ok(seen.stats.online >= 3 && seen.stats.accounts >= 5 && seen.players.some(player => player.username === "foo"));
   const listed = (await panel("accounts", undefined, admin)).data.accounts;

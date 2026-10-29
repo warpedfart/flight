@@ -482,6 +482,7 @@
           <button role="tab" data-tab="music" data-needs="music.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
           <button role="tab" data-tab="videos" data-needs="theatre.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9654;</span>Theatre videos</button>
           <button role="tab" data-tab="theatre" data-needs="theater.control" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
+          <button role="tab" data-tab="owner" data-needs="owner" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9733;</span>Owner</button>
         </nav>
         <button id="sign-out" type="button">Sign out</button>
       </aside>
@@ -1025,6 +1026,89 @@
             </div>
           </div>
           <p class="status" id="control-status" role="status"></p>
+        </section>
+      </div>
+
+      <!-- for Owners (lib/roles.js): the owner dashboard's own calls
+           (lib/panel.js), which take an Owner's staff sign-in. -->
+      <div data-view="owner" hidden>
+        <section>
+          <h2>The game</h2>
+          <p class="hint">Close it for maintenance, such as work on roles, while the server keeps running: players are refused at sign-in with the game's own "down for maintenance" message, and those playing are told and put out. Staff with 2FA can still sign in. It stays closed through a restart until it is opened again.</p>
+          <div class="toolbar">
+            <strong id="owner-game-state"></strong>
+            <button type="button" id="owner-game-toggle"></button>
+          </div>
+          <p class="status" id="owner-game-status" role="status"></p>
+        </section>
+        <section>
+          <h2>Roles and badges</h2>
+          <p class="hint">A player's staff role and the badges by their name. Only whoever runs the server can make an Owner or change one.</p>
+          <div class="toolbar">
+            <input id="owner-player" maxlength="40" placeholder="Username" autocomplete="off" aria-label="Username">
+            <button type="button" id="owner-player-find">Open</button>
+          </div>
+          <div class="actions" id="owner-player-box" hidden>
+            <div class="action">
+              <h3>Staff role</h3>
+              <p class="hint" id="owner-role-now"></p>
+              <div class="row">
+                <select id="owner-role" aria-label="Staff role">
+                  <option value="none">No staff role</option>
+                  <option value="developer">Developer</option>
+                  <option value="helper">Helper</option>
+                  <option value="moderator">Moderator</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button type="button" class="primary" id="owner-role-set">Set role</button>
+              </div>
+            </div>
+            <div class="action">
+              <h3>Badges</h3>
+              <div id="owner-badges"></div>
+              <div class="row" style="margin-top:12px"><button type="button" class="primary" id="owner-badges-save">Save badges</button></div>
+            </div>
+          </div>
+          <p class="status" id="owner-player-status" role="status"></p>
+        </section>
+        <section>
+          <h2>Make invite codes</h2>
+          <p class="hint">Each code works once. Only a fingerprint is kept, so a code is shown here one time and cannot be looked up later: copy them before leaving this page.</p>
+          <div class="actions">
+            <div class="action">
+              <h3>New codes</h3>
+              <div class="row">
+                <input id="owner-invite-count" type="number" min="1" max="50" value="1" aria-label="How many codes">
+                <input id="owner-invite-days" type="number" min="0" value="7" aria-label="Days until they expire (0 = never)">
+              </div>
+              <p class="hint">How many, and days until they expire (0 = never).</p>
+              <div class="row" style="margin-top:8px"><input id="owner-invite-note" maxlength="100" placeholder="Note (who they are for)" autocomplete="off" aria-label="Note"></div>
+              <div class="row" style="margin-top:12px"><button type="button" class="primary" id="owner-invite-make">Make codes</button></div>
+            </div>
+            <div class="action">
+              <h3>Sign-up</h3>
+              <label class="check"><input type="checkbox" id="owner-invite-only"> A code is needed to sign up</label>
+              <div class="row" style="margin-top:12px">
+                <input id="owner-member-limit" type="number" min="0" placeholder="Member limit (0 = none)" aria-label="Member limit">
+                <button type="button" id="owner-member-limit-save">Set</button>
+              </div>
+              <p class="hint" id="owner-member-count"></p>
+            </div>
+          </div>
+          <div id="owner-invite-new" hidden>
+            <h3>New codes: copy these now</h3>
+            <textarea id="owner-invite-codes" rows="5" readonly spellcheck="false" aria-label="The new codes" style="width:100%"></textarea>
+            <div class="row" style="margin-top:8px"><button type="button" id="owner-invite-copy">Copy</button></div>
+          </div>
+          <p class="status" id="owner-invite-status" role="status"></p>
+        </section>
+        <section>
+          <h2>Codes made</h2>
+          <div class="table-wrap"><table>
+            <thead><tr><th class="num">Id</th><th>Note</th><th>Made by</th><th>Made</th><th>Expires</th><th>Used</th><th></th></tr></thead>
+            <tbody id="owner-invite-rows"></tbody>
+          </table></div>
+          <div class="empty" id="owner-no-invites" hidden>None yet.</div>
         </section>
       </div>
 
@@ -3129,6 +3213,177 @@
         }
       };
 
+      // ---- the Owner page: the owner dashboard's calls (lib/panel.js), which
+      // take an Owner's staff sign-in as theirs.
+      const ownerApi = async (path, body) => {
+        try {
+          const response = await fetch(`/dashboard/api/admin/${path}`, body === undefined ? {} : {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+          });
+          const data = await response.json().catch(() => ({}));
+          return {ok: response.ok, status: response.status, data};
+        }
+        catch (err) {
+          return {ok: false, status: 0, data: {error: "The server did not answer."}};
+        }
+      };
+      const renderOwnerGame = closed => {
+        $("owner-game-state").textContent = closed ? "Closed: only staff can sign in." : "Open to everyone.";
+        $("owner-game-toggle").textContent = closed ? "Open the game" : "Close the game";
+        $("owner-game-toggle").className = closed ? "primary" : "danger";
+        $("owner-game-toggle").dataset.closed = closed ? "1" : "";
+      };
+      $("owner-game-toggle").addEventListener("click", async () => {
+        const closing = !$("owner-game-toggle").dataset.closed;
+        if (closing && !confirm("Close the game? Everyone playing who is not staff is put out, and nobody else can sign in until it is opened again.")) {
+          return;
+        }
+        const result = await ownerApi("game", {closed: closing});
+        setStatus($("owner-game-status"), said(result), !result.ok);
+        if (result.ok) {
+          renderOwnerGame(closing);
+        }
+      });
+
+      let ownerPlayer = null; // the account open on the Owner page
+      const showOwnerPlayer = (account, badges) => {
+        ownerPlayer = account.username;
+        $("owner-player-box").hidden = false;
+        const isOwner = account.role === "owner";
+        $("owner-role-now").textContent = `${account.username}: ${account.role || "no staff role"}${account.role && !account.twoStep ? " (no 2FA yet, so the role does nothing until they turn it on)" : ""}.`;
+        $("owner-role").value = isOwner ? "none" : account.role || "none";
+        $("owner-role").disabled = $("owner-role-set").disabled = isOwner;
+        $("owner-badges").replaceChildren(...badges.map(badge => {
+          const label = el("label", undefined, "check");
+          label.style.display = "inline-flex";
+          label.style.gap = "5px";
+          label.style.marginRight = "12px";
+          const box = el("input");
+          box.type = "checkbox";
+          box.value = badge.id;
+          box.checked = account.badges.includes(badge.id);
+          box.disabled = isOwner;
+          label.append(box, badge.label);
+          return label;
+        }));
+        $("owner-badges-save").disabled = isOwner;
+        if (isOwner) {
+          setStatus($("owner-player-status"), "An Owner's role and badges are changed only with the admin password.");
+        }
+      };
+      const openOwnerPlayer = async () => {
+        const name = $("owner-player").value.trim();
+        if (!name) {
+          return;
+        }
+        const result = await ownerApi(`account?username=${encodeURIComponent(name)}`);
+        if (!result.ok) {
+          $("owner-player-box").hidden = true;
+          ownerPlayer = null;
+          setStatus($("owner-player-status"), said(result), true);
+          return;
+        }
+        setStatus($("owner-player-status"), "");
+        showOwnerPlayer(result.data.account, result.data.badges);
+      };
+      $("owner-player-find").addEventListener("click", openOwnerPlayer);
+      $("owner-player").addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          openOwnerPlayer();
+        }
+      });
+      const ownerAccountAction = async (action, extra) => {
+        if (!ownerPlayer) {
+          return;
+        }
+        const result = await ownerApi("account", {username: ownerPlayer, action, ...extra});
+        setStatus($("owner-player-status"), said(result), !result.ok);
+        const again = await ownerApi(`account?username=${encodeURIComponent(ownerPlayer)}`);
+        if (again.ok) {
+          showOwnerPlayer(again.data.account, again.data.badges);
+        }
+      };
+      $("owner-role-set").addEventListener("click", () => ownerAccountAction("role", {role: $("owner-role").value}));
+      $("owner-badges-save").addEventListener("click", () => ownerAccountAction("badges",
+        {badges: [...$("owner-badges").querySelectorAll("input:checked")].map(box => box.value)}));
+
+      let ownerSignupShown = false;
+      const renderOwnerInvites = data => {
+        const rows = data.invites || [];
+        $("owner-invite-rows").replaceChildren(...rows.map(invite => {
+          const row = el("tr");
+          const used = invite.used_at ? `${when(invite.used_at)}${invite.used_by ? ` by ${invite.used_by}` : ""}` : "not yet";
+          row.append(el("td", String(invite.id), "num"), el("td", invite.note || "—"), el("td", invite.created_by),
+            el("td", when(invite.created_at)), el("td", invite.expires_at ? when(invite.expires_at) : "never"), el("td", used));
+          const action = el("td");
+          if (!invite.used_at) {
+            action.append(button("Revoke", async () => {
+              if (!confirm(`Revoke code #${invite.id}${invite.note ? ` (${invite.note})` : ""}? It will stop working.`)) {
+                return;
+              }
+              const result = await ownerApi("invites/revoke", {id: invite.id});
+              setStatus($("owner-invite-status"), result.ok ? "Code revoked." : said(result), !result.ok);
+              if (result.ok) {
+                renderOwnerInvites(result.data);
+              }
+            }, "danger"));
+          }
+          row.append(action);
+          return row;
+        }));
+        $("owner-no-invites").hidden = rows.length > 0;
+        $("owner-member-count").textContent = `${data.members} member${data.members === 1 ? "" : "s"} now.`;
+        // set from the server once a visit, not over a box being changed
+        if (!ownerSignupShown) {
+          $("owner-invite-only").checked = Boolean(data.inviteOnly);
+          $("owner-member-limit").value = data.memberLimit || 0;
+          ownerSignupShown = true;
+        }
+      };
+      $("owner-invite-make").addEventListener("click", async () => {
+        const count = Number($("owner-invite-count").value);
+        const days = Number($("owner-invite-days").value);
+        if (!Number.isInteger(count) || count < 1 || count > 50 || !Number.isInteger(days) || days < 0) {
+          setStatus($("owner-invite-status"), "Choose 1 to 50 codes, and 0 or more whole days.", true);
+          return;
+        }
+        $("owner-invite-make").disabled = true;
+        const result = await ownerApi("invites", {count, days, note: $("owner-invite-note").value});
+        $("owner-invite-make").disabled = false;
+        if (!result.ok) {
+          setStatus($("owner-invite-status"), said(result), true);
+          return;
+        }
+        const codes = result.data.codes || [];
+        $("owner-invite-codes").value = codes.join("\n");
+        $("owner-invite-new").hidden = false;
+        setStatus($("owner-invite-status"), `Made ${codes.length} code${codes.length === 1 ? "" : "s"}.`);
+        renderOwnerInvites(result.data);
+      });
+      $("owner-invite-copy").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText($("owner-invite-codes").value);
+          setStatus($("owner-invite-status"), "Copied.");
+        }
+        catch (err) {
+          $("owner-invite-codes").select();
+          setStatus($("owner-invite-status"), "Select the codes and copy them by hand.", true);
+        }
+      });
+      $("owner-invite-only").addEventListener("change", async () => {
+        const result = await ownerApi("signup", {inviteOnly: $("owner-invite-only").checked});
+        setStatus($("owner-invite-status"), result.ok ? ($("owner-invite-only").checked ? "A code is needed to sign up." : "Sign-up is open.") : said(result), !result.ok);
+        if (!result.ok) {
+          $("owner-invite-only").checked = !$("owner-invite-only").checked;
+        }
+      });
+      $("owner-member-limit-save").addEventListener("click", async () => {
+        const result = await ownerApi("signup", {memberLimit: Number($("owner-member-limit").value)});
+        setStatus($("owner-invite-status"), result.ok ? (result.data.memberLimit ? `At most ${result.data.memberLimit} members.` : "No member limit.") : said(result), !result.ok);
+      });
+
       const refresh = async () => {
         clearTimeout(timer);
         if (!signedIn) {
@@ -3245,6 +3500,15 @@
         }
         else if (shown === "stats") {
           await window.statsView.load(api);
+        }
+        else if (shown === "owner") {
+          const [overview, invites] = await Promise.all([ownerApi("overview"), ownerApi("invites")]);
+          if (overview.ok) {
+            renderOwnerGame(overview.data.server.gameClosed);
+          }
+          if (invites.ok) {
+            renderOwnerInvites(invites.data);
+          }
         }
         else if (shown === "mod-log") {
           const result = await api("modlog");
@@ -3400,6 +3664,10 @@
           return;
         }
         const allowed = new Set(result.data.permissions || []);
+        // not a permission: the Owner page is the owner dashboard's
+        if (result.data.role === "owner") {
+          allowed.add("owner");
+        }
         permissions = allowed;
         myName = result.data.username || "";
         for (const pressed of document.querySelectorAll("button[data-action]")) {
