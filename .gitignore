@@ -26,6 +26,14 @@ __pycache__/
 !server_personalization/README.md
 !docs/CUSTOM_ITEM_ART.md
 !docs/MUSIC_UPLOAD.md
+!docs/README.md
+!docs/architecture.md
+!docs/game-files.md
+!docs/broken-references.md
+!docs/server.md
+!docs/client.md
+!docs/web.md
+!docs/tools.md
 !/CONTRIBUTING.md
 !/README.md
 !/LOCAL_SETUP.md

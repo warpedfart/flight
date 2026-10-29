@@ -261,6 +261,16 @@
       tbody tr.selected td { background: var(--accent-soft); }
       tbody tr.pick { cursor: pointer; }
       .device-id { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+      .gf-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; align-items: start; }
+      @media (max-width: 1000px) { .gf-layout { grid-template-columns: minmax(0, 1fr); } }
+      .gf-layout td { white-space: normal; }
+      .gf-mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+      .gf-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+      .gf-kinds button { padding: 4px 11px; font-size: 13px; }
+      .gf-kinds button span { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+      #gf-detail h3 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+      #gf-detail h2 { margin: 0 0 6px; overflow-wrap: anywhere; }
+      #gf-results tr.picked td { background: var(--raised); }
       button.link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; font-weight: 400; }
       .empty { color: var(--muted); padding: 10px 2px; }
       .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
@@ -415,6 +425,7 @@
           <button role="tab" data-tab="wear-rules" aria-selected="false"><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="music" aria-selected="false"><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
           <button role="tab" data-tab="theatre" aria-selected="false"><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
+          <button role="tab" data-tab="gamefiles" aria-selected="false"><span class="icon" aria-hidden="true">&#9783;</span>Game files</button>
           <button role="tab" data-tab="bans" aria-selected="false"><span class="icon" aria-hidden="true">&#8856;</span>Bans</button>
           <button role="tab" data-tab="invites" aria-selected="false"><span class="icon" aria-hidden="true">&#9993;</span>Invites</button>
           <button role="tab" data-tab="moderators" aria-selected="false"><span class="icon" aria-hidden="true">&#9733;</span>Moderators</button>
@@ -430,6 +441,15 @@
       <div class="page-title"><h1 id="page-name">Overview</h1></div>
 
       <div data-view="overview">
+        <section id="game-switch">
+          <h2>The game</h2>
+          <p class="hint">Close it for maintenance, such as work on roles, while the server keeps running: players are refused at sign-in with the game's own "down for maintenance" message, and those playing are told and put out. Staff with 2FA can still sign in. It stays closed through a restart until it is opened again.</p>
+          <div class="toolbar">
+            <strong id="game-state"></strong>
+            <button type="button" id="game-toggle"></button>
+          </div>
+          <p class="status" id="game-status" role="status"></p>
+        </section>
         <div class="tiles" id="tiles"></div>
         <div class="columns">
           <section>
@@ -709,6 +729,7 @@
                     <option value="helper">Helper</option>
                     <option value="moderator">Moderator</option>
                     <option value="admin">Admin</option>
+                    <option value="owner">Owner (the owner dashboard too, from anywhere)</option>
                   </select>
                   <button type="button" data-action="role">Set role</button>
                   <button type="button" data-action="clearDen">Clear den</button>
@@ -1178,6 +1199,30 @@
         </div>
       </div>
 
+      <div data-view="gamefiles" hidden>
+        <section>
+          <p class="hint">What each of the game's files is. Search by a name ("call of the alphas"), an id ("1233"), a kind and an id ("party:6"), a file's path ("media/1233") or a hashed file name as the cache and the CDN have it (32 letters and digits). The def packs say what each thing uses: a party its room and art, a den item its picture, a shop its stock. Docs: docs/game-files.md in the repository.</p>
+          <form class="toolbar" id="gf-form">
+            <input id="gf-q" type="search" placeholder="Name, id, kind:id, path or hash" aria-label="Look up a game file">
+            <select id="gf-kind" aria-label="Kind"><option value="">Every kind</option></select>
+            <button type="submit" class="primary">Look up</button>
+            <button type="button" id="gf-problems">Broken links</button>
+          </form>
+          <div class="gf-kinds" id="gf-kinds"></div>
+          <p class="status" id="gf-status" role="status"></p>
+          <div class="gf-layout">
+            <div>
+              <div id="gf-file"></div>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Kind</th><th class="num">Id</th><th>Name</th><th class="num">Files</th></tr></thead>
+                <tbody id="gf-results"></tbody>
+              </table></div>
+            </div>
+            <div id="gf-detail"><p class="hint">Pick something on the left to see its files, what it names, and what names it.</p></div>
+          </div>
+        </section>
+      </div>
+
       <div data-view="logs" hidden>
         <section>
           <div class="toolbar">
@@ -1370,6 +1415,10 @@
           return row;
         }));
         $("no-players").hidden = data.players.length > 0;
+        $("game-state").textContent = data.server.gameClosed ? "Closed: only staff can sign in." : "Open to everyone.";
+        $("game-toggle").textContent = data.server.gameClosed ? "Open the game" : "Close the game";
+        $("game-toggle").className = data.server.gameClosed ? "primary" : "danger";
+        $("game-toggle").dataset.closed = data.server.gameClosed ? "1" : "";
         const yesNo = value => (value ? "Yes" : "No");
         const facts = [
           ["Address", data.server.address],
@@ -3627,6 +3676,9 @@
         else if (tab === "theatre") {
           await loadTheatre();
         }
+        else if (tab === "gamefiles") {
+          await loadGameFiles();
+        }
         else if (tab === "items") {
           result = await api("items");
           if (result.ok) {
@@ -3760,6 +3812,9 @@
         else if (name === "masterpieces" && value) {
           openPaintings(value);
         }
+        else if (name === "gamefiles" && value) {
+          openGameEntry(value);
+        }
         else {
           hashArg = "";
           showTab(name);
@@ -3771,6 +3826,228 @@
         if (state && state.signedIn) {
           applyHash();
         }
+      });
+
+      // the game's files (lib/gamefiles.js)
+      let gfKinds = null;
+      let gfAnimals = null;
+      const gfFileUrl = relPath => `/dashboard/api/admin/gamefiles/file?path=${encodeURIComponent(relPath)}`;
+      const gfLink = (kind, id, text) => {
+        const button = el("button", text, "link");
+        button.type = "button";
+        button.addEventListener("click", () => openGameEntry(`${kind}:${id}`));
+        return button;
+      };
+      const gfFilesTable = files => {
+        const wrap = el("div", undefined, "table-wrap");
+        const table = el("table");
+        table.innerHTML = "<thead><tr><th>What</th><th>File</th><th>Name on the CDN</th><th>Cache</th></tr></thead>";
+        const body = el("tbody");
+        for (const file of files) {
+          const row = el("tr");
+          row.append(el("td", file.role || ""), el("td", file.path, "gf-mono"), el("td", file.hashed, "gf-mono"));
+          const cell = el("td");
+          if (file.cached) {
+            const link = el("a", `Save (${Math.max(1, Math.round(file.bytes / 1024))} KB)`);
+            link.href = gfFileUrl(file.path);
+            cell.append(link);
+          }
+          else if (file.own) {
+            const own = el("span", "this server", "tag good");
+            own.title = file.own;
+            cell.append(own);
+          }
+          else {
+            cell.append(el("span", "not here", "tag"));
+          }
+          row.append(cell);
+          body.append(row);
+        }
+        table.append(body);
+        wrap.append(table);
+        return wrap;
+      };
+      const gfNamedTable = (rows, empty) => {
+        if (!rows.length) {
+          return el("p", empty, "hint");
+        }
+        const wrap = el("div", undefined, "table-wrap");
+        const table = el("table");
+        table.innerHTML = "<thead><tr><th>As</th><th>Kind</th><th>Name</th></tr></thead>";
+        const body = el("tbody");
+        for (const one of rows) {
+          const row = el("tr");
+          const name = el("td");
+          if (one.missing) {
+            name.append(el("span", "missing", "tag bad"), ` ${one.kind}:${one.id} does not exist`);
+          }
+          else {
+            name.append(gfLink(one.kind, one.id, one.name || `${one.kindLabel} ${one.id}`));
+          }
+          row.append(el("td", one.role || ""), el("td", `${one.kindLabel} ${one.id}`), name);
+          body.append(row);
+        }
+        table.append(body);
+        wrap.append(table);
+        return wrap;
+      };
+      const renderGameResults = data => {
+        const body = $("gf-results");
+        body.textContent = "";
+        $("gf-file").textContent = "";
+        if (data.file) {
+          const box = el("div");
+          if (data.file.unknown) {
+            box.append(el("p", `No def names a file with the hash ${data.file.hash}. It may be an image array of an animal's own body, or a file nothing uses any more.`, "hint"));
+          }
+          else {
+            box.append(el("p", `${data.file.path}${data.file.folder ? `: ${data.file.folder}` : ""}. ${data.file.usedBy.length ? "Used by:" : "Nothing the def packs name uses it."}`, "hint"));
+            if (data.file.others) {
+              box.append(el("p", `That name is ${data.file.others} other files' too, in other folders. Paste it with its folders (as in "1830/roomDefs/sarepia/...") to say which.`, "hint"));
+            }
+            box.append(gfFilesTable([data.file]));
+          }
+          $("gf-file").append(box);
+        }
+        for (const result of data.results) {
+          const row = el("tr");
+          row.dataset.key = `${result.kind}:${result.id}`;
+          const name = el("td");
+          name.append(gfLink(result.kind, result.id, result.name || "(no name)"));
+          row.append(el("td", result.kindLabel), el("td", String(result.id), "num"), name, el("td", String(result.files), "num"));
+          body.append(row);
+        }
+        setStatus($("gf-status"), data.total > data.results.length ? `${data.total} found; the first ${data.results.length} are shown.` : `${data.total} found.`);
+      };
+      const lookUpGameFiles = async () => {
+        const q = $("gf-q").value.trim();
+        const kind = $("gf-kind").value;
+        if (!q && !kind) {
+          return;
+        }
+        setStatus($("gf-status"), "Looking...");
+        const result = await api(`gamefiles?q=${encodeURIComponent(q || "*")}&kind=${encodeURIComponent(kind)}`);
+        if (!result.ok) {
+          setStatus($("gf-status"), said(result), true);
+          return;
+        }
+        renderGameResults(result.data);
+      };
+      $("gf-form").addEventListener("submit", event => {
+        event.preventDefault();
+        lookUpGameFiles();
+      });
+      const loadGameFiles = async () => {
+        if (gfKinds) {
+          return;
+        }
+        setStatus($("gf-status"), "Reading the def packs (the first time takes a few seconds)...");
+        const result = await api("gamefiles");
+        if (!result.ok) {
+          setStatus($("gf-status"), said(result), true);
+          return;
+        }
+        gfKinds = result.data.kinds;
+        const box = $("gf-kinds");
+        box.textContent = "";
+        for (const kind of gfKinds) {
+          $("gf-kind").append(new Option(kind.label, kind.kind));
+          const button = el("button", kind.label);
+          button.type = "button";
+          button.title = kind.pack ? `defPack ${kind.pack}` : kind.table || "";
+          button.append(el("span", String(kind.count)));
+          button.addEventListener("click", () => {
+            $("gf-q").value = "";
+            $("gf-kind").value = kind.kind;
+            lookUpGameFiles();
+          });
+          box.append(button);
+        }
+        setStatus($("gf-status"), "");
+      };
+      const showWorn = async (layer, animal, into) => {
+        const result = await api(`gamefiles/worn?layer=${layer}&animal=${animal}`);
+        into.textContent = "";
+        if (result.ok) {
+          into.append(gfFilesTable(result.data.files));
+        }
+      };
+      const openGameEntry = async key => {
+        const [kind, id] = String(key).split(":");
+        await loadGameFiles();
+        if (tab !== "gamefiles") {
+          showTab("gamefiles");
+        }
+        hashArg = `${kind}:${id}`;
+        setHash();
+        for (const row of $("gf-results").children) {
+          row.classList.toggle("picked", row.dataset.key === hashArg);
+        }
+        const result = await api(`gamefiles/entry?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`);
+        const box = $("gf-detail");
+        box.textContent = "";
+        if (!result.ok) {
+          box.append(el("p", said(result), "hint"));
+          return;
+        }
+        const entry = result.data;
+        box.append(el("h2", entry.name || "(no name)"));
+        const tags = el("p");
+        tags.append(el("span", entry.kindLabel, "tag"), " ", el("span", `id ${entry.id}`, "tag"), " ",
+          el("span", entry.pack ? `defPack ${entry.pack}` : entry.table || "", "hint"));
+        box.append(tags);
+        if (entry.note) {
+          box.append(el("p", entry.note, "hint"));
+        }
+        box.append(el("h3", "Files"));
+        box.append(entry.files.length ? gfFilesTable(entry.files) : el("p", "No files of its own.", "hint"));
+        if (entry.wornLayer) {
+          box.append(el("h3", "Worn"));
+          box.append(el("p", "Each animal has its own art for every animation. Pick an animal:", "hint"));
+          const select = el("select");
+          select.setAttribute("aria-label", "Animal");
+          if (!gfAnimals) {
+            const animals = await api("gamefiles?q=*&kind=animal");
+            gfAnimals = animals.ok ? animals.data.results : [];
+          }
+          for (const animal of gfAnimals) {
+            select.append(new Option(`${animal.name || "Animal"} (${animal.id})`, animal.id));
+          }
+          const worn = el("div");
+          select.addEventListener("change", () => showWorn(entry.wornLayer, select.value, worn));
+          box.append(select, worn);
+          if (select.value) {
+            showWorn(entry.wornLayer, select.value, worn);
+          }
+        }
+        box.append(el("h3", "It names"));
+        box.append(gfNamedTable(entry.links, "Nothing else."));
+        box.append(el("h3", "Named by"));
+        box.append(gfNamedTable(entry.usedBy, "Nothing names it."));
+        const fields = el("details");
+        fields.append(el("summary", "Its def row, as the pack has it"));
+        const pre = el("pre", JSON.stringify(entry.fields, null, 2), "gf-mono");
+        fields.append(pre);
+        box.append(el("h3", "Fields"), fields);
+      };
+      $("gf-problems").addEventListener("click", async () => {
+        setStatus($("gf-status"), "Looking...");
+        const result = await api("gamefiles/problems");
+        if (!result.ok) {
+          setStatus($("gf-status"), said(result), true);
+          return;
+        }
+        $("gf-file").textContent = "";
+        const body = $("gf-results");
+        body.textContent = "";
+        for (const broken of result.data.brokenLinks) {
+          const row = el("tr");
+          const name = el("td");
+          name.append(gfLink(broken.from.kind, broken.from.id, broken.from.name || "(no name)"), ` names ${broken.to.kind} ${broken.to.id} (${broken.to.role}), which does not exist`);
+          row.append(el("td", broken.from.kindLabel), el("td", String(broken.from.id), "num"), name, el("td", "", "num"));
+          body.append(row);
+        }
+        setStatus($("gf-status"), `${result.data.brokenLinks.length} links to things the def packs do not have. docs/broken-references.md says what each should be.`);
       });
 
       const showTab = name => {
@@ -3800,9 +4077,25 @@
         }
       });
 
+      $("game-toggle").addEventListener("click", async () => {
+        const closing = !$("game-toggle").dataset.closed;
+        if (closing && !confirm("Close the game? Everyone playing who is not staff is put out, and nobody else can sign in until it is opened again.")) {
+          return;
+        }
+        const result = await api("game", {closed: closing});
+        setStatus($("game-status"), result.data.ok || result.data.error || "That did not work.", !result.ok);
+        const overview = await api("overview");
+        if (overview.ok) {
+          renderOverview(overview.data);
+        }
+      });
+
       const showPanel = () => {
         $("gate").hidden = true;
         $("panel").hidden = false;
+        // an Owner signed in through the staff dashboard: the admin
+        // password is not theirs to change
+        document.querySelector('nav button[data-tab="settings"]').hidden = Boolean(state && state.owner);
         if (!applyHash()) {
           showTab(tab);
         }

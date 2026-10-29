@@ -33,6 +33,7 @@ with the desktop client, is in **[LOCAL_SETUP.md](LOCAL_SETUP.md)**.
 | Upload a folder of music (and convert FLAC to MP3) | [docs/MUSIC_UPLOAD.md](docs/MUSIC_UPLOAD.md) |
 | Give it my own name and logo | [server_personalization/README.md](server_personalization/README.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Understand the code, the game's files, and what is broken | [docs/README.md](docs/README.md) |
 
 ## Configuration
 
