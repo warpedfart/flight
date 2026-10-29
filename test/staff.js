@@ -122,7 +122,7 @@ const run = async () => {
   assert.strictEqual((await admin("/admin/api/setup", {password: "AdminPass99!"})).status, 200);
   assert.strictEqual((await admin("/admin/api/login", {password: "AdminPass99!"})).status, 200);
   const roleList = await admin("/admin/api/roles");
-  assert.deepStrictEqual(roleList.data.roles.map(role => role.id), ["developer", "helper", "moderator", "admin"]);
+  assert.deepStrictEqual(roleList.data.roles.map(role => role.id), ["developer", "helper", "moderator", "admin", "owner"]);
   assert.match((await admin("/admin/api/account", {username: "Mira", action: "role", role: "boss"})).data.error, /No such role/);
 
   // staff need 2FA: turned on from the account page.
@@ -437,6 +437,47 @@ const run = async () => {
   assert.strictEqual((await halPage("/mod/api/me")).status, 200);
   assert.strictEqual((await halAccount("/account/api/act", {action: "signOutEverywhere"})).data.ok, "Signed out everywhere.");
   assert.strictEqual((await halPage("/mod/api/me")).status, 401);
+
+  // --- an Owner: the owner dashboard through their own staff sign-in
+  assert.match((await admin("/admin/api/account", {username: "Hal", action: "role", role: "owner"})).data.ok, /Hal is now an owner/);
+  usedStep.Hal++;
+  await waitForStep(usedStep.Hal);
+  const ownerPage = webSession();
+  assert.strictEqual((await ownerPage("/admin/api/overview")).status, 401);
+  assert.strictEqual((await ownerPage("/mod/api/login", {username: "Hal", password: people.Hal, code: codeAt(secrets.Hal, usedStep.Hal)})).status, 200);
+  assert.ok((await ownerPage("/mod/api/me")).data.permissions.includes("theatre.upload"));
+  const ownerState = (await ownerPage("/admin/api/state")).data;
+  assert.deepStrictEqual([ownerState.signedIn, ownerState.owner], [true, "Hal"]);
+  assert.strictEqual((await ownerPage("/admin/api/overview")).status, 200);
+  // what stays with the admin password: Owners, and the password itself
+  assert.match((await ownerPage("/admin/api/account", {username: "Pip", action: "role", role: "owner"})).data.error, /Only the admin password/);
+  assert.match((await ownerPage("/admin/api/account", {username: "Hal", action: "ban", hours: 1, reason: "x"})).data.error, /Only the admin password/);
+  assert.strictEqual((await ownerPage("/admin/api/password", {current: "AdminPass99!", password: "AnotherPass99!"})).status, 403);
+  // the rest is theirs, written down under their name
+  assert.match((await ownerPage("/admin/api/account", {username: "Pip", action: "tint", tint: "mud"})).data.ok, /tinted mud/);
+  assert.ok((await admin("/admin/api/moderators")).data.log.some(entry => entry.by === "Hal" && entry.action === "tinted mud" && entry.target === "Pip"));
+
+  // --- the game closed for maintenance: players are put out and refused, staff are not
+  const closed = await ownerPage("/admin/api/game", {closed: true});
+  assert.match(closed.data.ok, /only staff can sign in\. 2 players were told and put out/);
+  assert.match((await pip.client.untilXt("ua"))[1], /closing for maintenance/);
+  await new Promise(resolve => pip.client.socket.once("close", resolve));
+  assert.strictEqual((await ownerPage("/admin/api/overview")).data.server.gameClosed, true);
+  assert.deepStrictEqual((await ownerPage("/admin/api/overview")).data.players, []);
+  const refused = await postJson(`${BASE}/authenticate`, {username: "Pip", password: people.Pip});
+  const pipAgain = new harness.GameClient(GAME_PORT);
+  await pipAgain.connect();
+  const turnedAway = await pipAgain.logIn("Pip", (await refused.json()).auth_token);
+  assert.deepStrictEqual([turnedAway.status, turnedAway.statusId], ["0", -16]); // the game's "down for maintenance"
+  pipAgain.socket.destroy();
+  usedStep.Hal++;
+  await waitForStep(usedStep.Hal);
+  const halStaff = await arrive("Hal", people.Hal, SAREPIA, codeAt(secrets.Hal, usedStep.Hal));
+  assert.strictEqual(halStaff.login.status, "1");
+  halStaff.client.socket.destroy();
+  assert.match((await ownerPage("/admin/api/game", {closed: false})).data.ok, /open/);
+  const pipBack = await arrive("Pip", people.Pip, SAREPIA);
+  pipBack.client.socket.destroy();
 
   for (const {client} of [mira, hal, pip, annBack]) {
     client.socket.destroy();
