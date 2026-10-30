@@ -1,6 +1,6 @@
 # Flight
 
-A private server for the AJ Classic desktop client, written in Node.js with no framework. It handles
+A private server, written in Node.js with no framework. It handles
 accounts and sign-up (with optional invite codes), the game server itself, an owner dashboard, a moderator
 panel, an optional Discord staff bot, and the public website (home, sign-up, account, terms and privacy).
 
