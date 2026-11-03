@@ -96,6 +96,8 @@ set -- \
   item.Item Item.as \
   loader.DenItemHelper DenItemHelper.as \
   den.DenItem DenItem.as \
+  gui.PhotoBooth PhotoBooth.as \
+  game.microCrane.MicroCrane MicroCrane.as \
   room.DenItemHolder ../tools/decompiled/room/DenItemHolder.as
 # not in the game: added before the replace (game.ArtStudioKit is Strawberry
 # Jam's, shared by its two art studio painters; gui.SitForwardAction is the
