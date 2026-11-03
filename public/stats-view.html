@@ -31,7 +31,71 @@
   .stats-heat .hour { aspect-ratio: auto; text-align: center; }
   .stats-empty { color: var(--muted); padding: 24px 0; text-align: center; }
 </style>
-<link rel="stylesheet" href="/theme.css">
+<style id="dove-theme">
+:root {
+    color-scheme: light;
+  
+    --dove-coral: #FE8181;
+    --dove-white: #F6F6F6;
+    --dove-rose:  #C24849;
+    --dove-dust:  #E3BBC7;
+    --dove-blush: #FEEAF3;
+    --ink:        #4A1F26;
+  
+    --bg:           var(--dove-blush);
+    --panel:        var(--dove-white);
+    --raised:       #FFFFFF;
+    --field:        #FFFFFF;
+    --line:         var(--dove-dust);
+    --line-strong:  var(--dove-coral);
+    --text:         var(--ink);
+    --muted:        #8A5560;
+    --accent:       var(--dove-rose);
+    --accent-soft:  var(--dove-blush);
+    --shadow:       0 2px 10px rgba(194, 72, 73, 0.12);
+  
+    --hearts: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='%23E3BBC7' fill-opacity='.55'%3E%3Cpath transform='translate(36 40) rotate(-14)' d='M0 12C-16-2-16-16-7-16C-3-16 0-13 0-10C0-13 3-16 7-16C16-16 16-2 0 12Z'/%3E%3Cpath transform='translate(110 112) rotate(16) scale(.8)' d='M0 12C-16-2-16-16-7-16C-3-16 0-13 0-10C0-13 3-16 7-16C16-16 16-2 0 12Z'/%3E%3C/g%3E%3C/svg%3E");
+    --paws: var(--hearts);
+  }
+  
+  body {
+    background-color: var(--bg);
+    background-image: var(--hearts);
+    background-attachment: fixed;
+    color: var(--text);
+  }
+  
+  ::selection { background: var(--dove-rose); color: var(--dove-white); }
+  ::-webkit-scrollbar-thumb { background: var(--dove-dust); border-color: var(--bg); }
+  
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, textarea:focus-visible { outline-color: var(--dove-rose); }
+  
+  /* inputs: coral edge on hover, deep rose on focus */
+  input:hover, select:hover, textarea:hover { border-color: var(--dove-coral); }
+  input:focus, select:focus, textarea:focus { border-color: var(--dove-rose); }
+  input::placeholder, textarea::placeholder { color: #B58A94; }
+  
+  /* buttons */
+  button, .pill { color: var(--text); background: var(--raised); border-color: var(--line); }
+  button:hover, .pill:hover { background: var(--dove-blush); border-color: var(--dove-coral); }
+  
+  button.primary, .pill.main {
+    color: var(--dove-white);
+    background: var(--dove-rose);
+    border-color: var(--dove-rose);
+  }
+  button.primary:hover, .pill.main:hover {
+    background: var(--dove-coral);
+    border-color: var(--dove-coral);
+    box-shadow: 4px 4px 0 var(--dove-dust);
+  }
+  button.primary:disabled, button.primary:disabled:hover {
+    background: var(--dove-dust);
+    border-color: var(--dove-dust);
+    color: var(--dove-white);
+  }
+    </style>
 
 <section>
   <div class="toolbar">
