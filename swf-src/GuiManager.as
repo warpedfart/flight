@@ -1452,7 +1452,7 @@ package gui
                param1--;
             }
          }
-         else if(denEditor != null)
+         else if(denEditor != null || RoomManagerWorld.instance.isMyDen)
          {
             param1--;
          }

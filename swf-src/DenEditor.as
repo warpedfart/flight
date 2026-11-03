@@ -143,7 +143,7 @@ package gui
       
       private var _itemSetEvent:DenItemHolderEvent;
 
-      private var _layerControls:Sprite;
+      // private var _layerControls:Sprite;
       
       public function DenEditor()
       {
@@ -162,7 +162,7 @@ package gui
          _roomMgr = RoomManagerWorld.instance;
          _denItemHolder = _roomMgr.denItemHolder;
          _guiLayer.addChild(_denEditor);
-         createLayerControls();
+         // createLayerControls();
          initAssetVisibility();
          setupPlayerItems();
          DenXtCommManager.denEditorDIResponseCallback = diResponseCallback;
@@ -176,7 +176,7 @@ package gui
          _denItemHolder.removeEventListener("OnItemRemoved",onDenItemRemoved);
          _denItemHolder.removeEventListener("OnSaveState",onDenSaveState);
          removeListeners();
-         destroyLayerControls();
+         // destroyLayerControls();
          _guiLayer.removeChild(_denEditor);
          if(_denLockPopup)
          {
@@ -1205,17 +1205,17 @@ package gui
 
       // Small controls added at runtime so every den item can be stacked
       // deliberately, instead of relying solely on where its feet land.
-      private function createLayerControls() : void
-      {
-         _layerControls = new Sprite();
-         _layerControls.x = _denEditor.width - 258;
-         _layerControls.y = 12;
-         _layerControls.addChild(makeLayerLabel("Selected item layer",0,0,230,22,13,16774041));
-         addLayerButton("Send behind",0,onSendBehind);
-         addLayerButton("Bring on top",116,onBringOnTop);
-         addLayerButton("Use natural depth",0,onResetLayer,62,230,30);
-         _denEditor.addChild(_layerControls);
-      }
+      // private function createLayerControls() : void
+      // {
+      //    _layerControls = new Sprite();
+      //    _layerControls.x = _denEditor.width - 258;
+      //    _layerControls.y = 12;
+      //    _layerControls.addChild(makeLayerLabel("Selected item layer",0,0,230,22,13,16774041));
+      //    addLayerButton("Send behind",0,onSendBehind);
+      //    addLayerButton("Bring on top",116,onBringOnTop);
+      //    addLayerButton("Use natural depth",0,onResetLayer,62,230,30);
+      //    _denEditor.addChild(_layerControls);
+      // }
 
       private function addLayerButton(param1:String, param2:Number, param3:Function, param4:Number = 26, param5:Number = 110, param6:Number = 30) : void
       {
@@ -1229,7 +1229,7 @@ package gui
          _loc6_.graphics.endFill();
          _loc6_.addChild(makeLayerLabel(param1,0,5,param5,param6 - 5,12,16777215));
          _loc6_.addEventListener("mouseDown",param3,false,0,true);
-         _layerControls.addChild(_loc6_);
+         // _layerControls.addChild(_loc6_);
       }
 
       private function makeLayerLabel(param1:String, param2:Number, param3:Number, param4:Number, param5:Number, param6:int, param7:uint) : TextField
@@ -1264,14 +1264,14 @@ package gui
          _denItemHolder.resetSelectedStacking();
       }
 
-      private function destroyLayerControls() : void
-      {
-         if(_layerControls && _layerControls.parent)
-         {
-            _layerControls.parent.removeChild(_layerControls);
-         }
-         _layerControls = null;
-      }
+      // private function destroyLayerControls() : void
+      // {
+      //    if(_layerControls && _layerControls.parent)
+      //    {
+      //       _layerControls.parent.removeChild(_layerControls);
+      //    }
+      //    _layerControls = null;
+      // }
       
       private function onClose(param1:MouseEvent) : void
       {
