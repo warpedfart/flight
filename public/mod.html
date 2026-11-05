@@ -661,6 +661,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <button role="tab" data-tab="home" data-needs="player.view" aria-selected="true"><span class="icon" aria-hidden="true">&#9673;</span>Dashboard</button>
           <button role="tab" data-tab="server" data-needs="server.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9881;</span>Server health</button>
           <button role="tab" data-tab="players" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9787;</span>Players</button>
+          <button role="tab" data-tab="new-accounts" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#10010;</span>New accounts</button>
           <button role="tab" data-tab="chat" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9993;</span>Chat</button>
           <button role="tab" data-tab="reports" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9873;</span>Reports<span id="report-count"></span></button>
           <button role="tab" data-tab="requests" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9998;</span>Requests<span id="request-count"></span></button>
@@ -962,9 +963,33 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       </div>
 
       <div data-view="stats" hidden>
-<!--stats-view-->
       </div>
-
+      <div data-view="new-accounts" hidden>
+        <section>
+          <div class="toolbar">
+            <h2 style="margin:0;flex:1">New accounts</h2>
+            <select id="newacc-range" aria-label="How far back">
+              <option value="1">Last hour</option>
+              <option value="24" selected>Last 24 hours</option>
+              <option value="72">Last 3 days</option>
+              <option value="168">Last 7 days</option>
+            </select>
+            <label class="check"><input id="newacc-alts-only" type="checkbox"> With alts only</label>
+          </div>
+          <p class="hint">Newest first, refreshing on its own. Click a row to open it.</p>
+          <p class="status" id="newacc-status" role="status"></p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Created</th><th>Username</th><th>State</th><th>Discord</th><th class="num">Alts</th><th>Alt accounts</th></tr></thead>
+            <tbody id="newacc-rows"></tbody>
+          </table></div>
+          <div class="empty" id="no-newacc" hidden>No new accounts in that time.</div>
+          <div class="send-row">
+            <button type="button" id="newacc-newer" hidden>Newer</button>
+            <button type="button" id="newacc-older" hidden>Older</button>
+            <span class="hint" id="newacc-page"></span>
+          </div>
+        </section>
+      </div>
       <div data-view="chat" hidden>
         <section>
           <form id="chat-form" class="toolbar">
@@ -3575,7 +3600,63 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         const result = await ownerApi("signup", {memberLimit: Number($("owner-member-limit").value)});
         setStatus($("owner-invite-status"), result.ok ? (result.data.memberLimit ? `At most ${result.data.memberLimit} members.` : "No member limit.") : said(result), !result.ok);
       });
-
+      const newAccAlts = new Map();
+      const NEW_ACC_PAGE = 25;
+      let newAccOffset = 0;
+      const loadNewAccounts = async () => {
+      const result = await api(`newaccounts?hours=${$("newacc-range").value}&offset=${newAccOffset}`);
+        if (!result.ok) {
+          setStatus($("newacc-status"), said(result), true);
+          return;
+        }
+        setStatus($("newacc-status"), "");
+        const list = result.data.accounts || [];
+        if (!list.length && newAccOffset > 0) {
+          newAccOffset = 0;
+          return loadNewAccounts();
+        }
+        const now = Date.now();
+        await Promise.all(list.slice(0, 50)
+          .filter(one => !newAccAlts.has(one.username) || now - newAccAlts.get(one.username).at > 60000)
+          .map(async one => {
+            const found = await api(`alts?username=${encodeURIComponent(one.username)}`);
+            newAccAlts.set(one.username, {at: now, alts: found.ok ? found.data.alts : []});
+          }));
+        const altsOf = one => (newAccAlts.get(one.username) || {alts: []}).alts;
+        const shown = list.filter(one => !$("newacc-alts-only").checked || altsOf(one).length);
+        $("newacc-rows").replaceChildren(...shown.map(one => {
+          const row = el("tr", undefined, "pick");
+          const stateCell = el("td");
+          const tags = stateTags({banned: 0, silenced: 0, ...one});
+          stateCell.append(...(tags.length ? tags.flatMap(tag => [tag, " "]) : ["—"]));
+          const alts = altsOf(one);
+          const altCell = el("td", alts.length
+            ? alts.map(alt => `${alt.username}${alt.banned !== 0 ? " (banned)" : ""}${alt.weak ? " (weak)" : ""}`).join(", ") : "—");
+          altCell.style.whiteSpace = "normal";
+          row.append(el("td", when(one.createdAt)), el("td", one.username), stateCell, el("td", one.discord || "—"),
+            el("td", String(alts.length), "num"), altCell);
+          row.addEventListener("click", () => openPlayer(one.username));
+          return row;
+        }));
+        $("no-newacc").hidden = shown.length > 0;
+        const total = result.data.total || 0;
+        $("newacc-page").textContent = total ? `Showing ${newAccOffset + 1}–${newAccOffset + list.length} of ${total}` : "";
+        $("newacc-newer").hidden = newAccOffset === 0;
+        $("newacc-older").hidden = newAccOffset + list.length >= total;
+      };
+      $("newacc-range").addEventListener("change", () => {
+        newAccOffset = 0;
+        refresh();
+      });
+      $("newacc-newer").addEventListener("click", () => {
+        newAccOffset = Math.max(0, newAccOffset - NEW_ACC_PAGE);
+        refresh();
+      });
+      $("newacc-older").addEventListener("click", () => {
+        newAccOffset += NEW_ACC_PAGE;
+        refresh();
+      });
+      $("newacc-alts-only").addEventListener("change", () => refresh());
       const refresh = async () => {
         clearTimeout(timer);
         if (!signedIn) {
@@ -3692,6 +3773,9 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         }
         else if (shown === "stats") {
           await window.statsView.load(api);
+        }
+        else if (shown === "new-accounts") {
+          await loadNewAccounts();
         }
         else if (shown === "owner") {
           const [overview, invites] = await Promise.all([ownerApi("overview"), ownerApi("invites")]);
