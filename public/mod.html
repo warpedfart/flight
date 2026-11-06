@@ -667,6 +667,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <button role="tab" data-tab="requests" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9998;</span>Requests<span id="request-count"></span></button>
           <button role="tab" data-tab="masterpieces" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9635;</span>Masterpieces<span id="masterpiece-count"></span></button>
           <button role="tab" data-tab="bans" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#8856;</span>Bans</button>
+          <button role="tab" data-tab="invites" data-needs="invites.manage" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9993;</span>Invites</button>
           <button role="tab" data-tab="stats" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9636;</span>Stats</button>
           <button role="tab" data-tab="mod-log" data-needs="staff.log" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9776;</span>Mod log</button>
           <button role="tab" data-tab="review" data-needs="items.approve" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10004;</span>Review</button>
@@ -963,6 +964,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       </div>
 
       <div data-view="stats" hidden>
+<!--stats-view-->
       </div>
       <div data-view="new-accounts" hidden>
         <section>
@@ -1288,6 +1290,9 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           </div>
           <p class="status" id="owner-player-status" role="status"></p>
         </section>
+      </div>
+
+      <div data-view="invites" hidden>
         <section>
           <h2>Make invite codes</h2>
           <p class="hint">Each code works once. Only a fingerprint is kept, so a code is shown here one time and cannot be looked up later: copy them before leaving this page.</p>
@@ -3540,7 +3545,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
               if (!confirm(`Revoke code #${invite.id}${invite.note ? ` (${invite.note})` : ""}? It will stop working.`)) {
                 return;
               }
-              const result = await ownerApi("invites/revoke", {id: invite.id});
+              const result = await api("invites/revoke", {id: invite.id});
               setStatus($("owner-invite-status"), result.ok ? "Code revoked." : said(result), !result.ok);
               if (result.ok) {
                 renderOwnerInvites(result.data);
@@ -3567,7 +3572,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           return;
         }
         $("owner-invite-make").disabled = true;
-        const result = await ownerApi("invites", {count, days, note: $("owner-invite-note").value});
+        const result = await api("invites", {count, days, note: $("owner-invite-note").value});
         $("owner-invite-make").disabled = false;
         if (!result.ok) {
           setStatus($("owner-invite-status"), said(result), true);
@@ -3590,14 +3595,14 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         }
       });
       $("owner-invite-only").addEventListener("change", async () => {
-        const result = await ownerApi("signup", {inviteOnly: $("owner-invite-only").checked});
+        const result = await api("signup", {inviteOnly: $("owner-invite-only").checked});
         setStatus($("owner-invite-status"), result.ok ? ($("owner-invite-only").checked ? "A code is needed to sign up." : "Sign-up is open.") : said(result), !result.ok);
         if (!result.ok) {
           $("owner-invite-only").checked = !$("owner-invite-only").checked;
         }
       });
       $("owner-member-limit-save").addEventListener("click", async () => {
-        const result = await ownerApi("signup", {memberLimit: Number($("owner-member-limit").value)});
+        const result = await api("signup", {memberLimit: Number($("owner-member-limit").value)});
         setStatus($("owner-invite-status"), result.ok ? (result.data.memberLimit ? `At most ${result.data.memberLimit} members.` : "No member limit.") : said(result), !result.ok);
       });
       const newAccAlts = new Map();
@@ -3782,6 +3787,12 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           if (overview.ok) {
             renderOwnerGame(overview.data.server.gameClosed);
           }
+          if (invites.ok) {
+            renderOwnerInvites(invites.data);
+          }
+        }
+        else if (shown === "invites") {
+          const invites = await api("invites");
           if (invites.ok) {
             renderOwnerInvites(invites.data);
           }
