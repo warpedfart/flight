@@ -459,6 +459,8 @@ img.guarded.shown { filter: none; cursor: default; }
 
 nav button[aria-selected="true"],
 #wear-rule-animal button[aria-pressed="true"] { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
+.approvals-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.approvals-tabs button[aria-pressed="true"] { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
 nav button[aria-selected="true"] { font-weight: 700; }
 nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #fff; color: var(--red-deep); }
 
@@ -574,7 +576,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <button role="tab" data-tab="reports" aria-selected="false"><span class="icon" aria-hidden="true">&#9873;</span>Reports<span id="report-count"></span></button>
           <button role="tab" data-tab="support" aria-selected="false"><span class="icon" aria-hidden="true">&#9998;</span>Requests<span id="support-count"></span></button>
           <button role="tab" data-tab="masterpieces" aria-selected="false"><span class="icon" aria-hidden="true">&#9635;</span>Masterpieces<span id="masterpiece-count"></span></button>
-          <button role="tab" data-tab="items" aria-selected="false"><span class="icon" aria-hidden="true">&#10070;</span>Items</button>
+          <button role="tab" data-tab="items" aria-selected="false"><span class="icon" aria-hidden="true">&#10070;</span>Items<span id="review-count"></span></button>
           <button role="tab" data-tab="wear-rules" aria-selected="false"><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="music" aria-selected="false"><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
           <button role="tab" data-tab="theatre" aria-selected="false"><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
@@ -1015,12 +1017,21 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <h2>Username changes</h2>
           <div id="name-requests"></div>
           <div class="empty" id="no-name-requests" hidden>Nothing here.</div>
-          <h2 style="margin-top:20px">Ban appeals</h2>
-          <div id="appeals"></div>
-          <div class="empty" id="no-appeals" hidden>Nothing here.</div>
-          <h2 style="margin-top:20px">Feedback</h2>
-          <div id="feedback"></div>
-          <div class="empty" id="no-feedback" hidden>Nothing here.</div>
+          <h2 style="margin-top:20px">Waiting for approval</h2>
+          <div class="approvals-tabs">
+            <button type="button" id="approvals-tab-items" aria-pressed="false">Custom items<span id="approvals-count-items"></span></button>
+            <button type="button" id="approvals-tab-paintings" aria-pressed="false">Masterpieces<span id="approvals-count-paintings"></span></button>
+          </div>
+          <div id="approvals-items" hidden>
+            <p class="hint"></p>
+            <div class="review-list" id="support-items"></div>
+            <div class="empty" id="no-support-items" hidden>Nothing here.</div>
+          </div>
+          <div id="approvals-paintings" hidden>
+            <p class="hint"></p>
+            <div class="paintings" id="support-paintings"></div>
+            <div class="empty" id="no-support-paintings" hidden>Nothing here.</div>
+          </div>
         </section>
       </div>
 
@@ -1455,6 +1466,8 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       let timer = null;
       // Older responses must never overwrite a newer account search.
       let accountSearchRun = 0;
+      let reviewSeen = null;
+      let reviewWaiting = 0;
 
       const api = async (path, body) => {
         const response = await fetch(`/dashboard/api/admin/${path}`, body === undefined ? {} : {
@@ -1573,7 +1586,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         ["newToday", "Created, last 24 hours"],
         ["banned", "Banned"],
         ["reports", "Reports waiting"],
-        ["support", "Requests and feedback waiting"],
+        ["support", "Requests, items, and feedback waiting"],
         ["masterpieces", "Masterpieces waiting"],
         ["clientErrors", "Game client errors logged"],
       ];
@@ -2588,6 +2601,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           return box;
         }));
         $("no-name-requests").hidden = data.names.length > 0;
+        renderSupportApprovals(data);
         $("feedback").replaceChildren(...data.feedback.map(message => {
           const box = el("div", undefined, "report");
           box.append(el("h3", `${message.kind === "bug" ? "Bug report" : "Feedback"} from ${message.username}`),
@@ -2660,7 +2674,48 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           $("preview").hidden = true;
         }
       });
-
+      const masterpieceCard = (painting, which, statusId) => {
+        const box = el("div", undefined, "painting");
+        const picture = el("img");
+        picture.src = `/dashboard/api/admin/masterpiece?id=${encodeURIComponent(painting.id)}`;
+        picture.alt = `Painting by ${painting.creator}`;
+        picture.loading = "lazy";
+        picture.addEventListener("click", () => showPreview(picture.src));
+        box.append(picture, el("h3", painting.creator),
+          el("div", `${when(painting.createdAt)}${painting.status === "approved" ? `, ${painting.likes} like${painting.likes === 1 ? "" : "s"}` : ""}`
+            + `${which === "all" ? (painting.status === "waiting" ? " · waiting" : " · approved") : ""}`, "hint"));
+        const buttons = el("div", undefined, "buttons");
+        const sure = action => action === "approve" || confirm(action === "reject"
+          ? `Reject this painting by ${painting.creator}?` : `Remove this painting by ${painting.creator} from show?`);
+        const button = (label, action, className) => {
+          const node = el("button", label, className);
+          node.type = "button";
+          node.addEventListener("click", async () => {
+            if (!sure(action)) {
+              return;
+            }
+            node.disabled = true;
+            const result = await api("masterpiece", {id: painting.id, action});
+            setStatus($(statusId), result.data.ok || result.data.error || "That did not work.", !result.ok);
+            refresh();
+          });
+          return node;
+        };
+        if (painting.status === "waiting") {
+          buttons.append(button("Approve", "approve", "primary"), button("Reject", "reject", "danger"));
+        }
+        else {
+          buttons.append(button("Remove", "remove", "danger"));
+        }
+        const open = el("button", "Open account");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          openAccountTab(painting.creator);
+        });
+        buttons.append(open);
+        box.append(buttons);
+        return box;
+      };
       const renderMasterpieces = data => {
         const which = $("masterpiece-filter").value;
         const marked = (list, status) => list.map(painting => ({...painting, status}));
@@ -2674,49 +2729,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           return;
         }
         paintingsShown = shown;
-        $("masterpieces").replaceChildren(...paintings.map(painting => {
-          const box = el("div", undefined, "painting");
-          const picture = el("img");
-          picture.src = `/dashboard/api/admin/masterpiece?id=${encodeURIComponent(painting.id)}`;
-          picture.alt = `Painting by ${painting.creator}`;
-          picture.loading = "lazy";
-          picture.addEventListener("click", () => showPreview(picture.src));
-          box.append(picture, el("h3", painting.creator),
-            el("div", `${when(painting.createdAt)}${painting.status === "approved" ? `, ${painting.likes} like${painting.likes === 1 ? "" : "s"}` : ""}`
-              + `${which === "all" ? (painting.status === "waiting" ? " · waiting" : " · approved") : ""}`, "hint"));
-          const buttons = el("div", undefined, "buttons");
-          // rejecting or removing asks first; approving does not
-          const sure = action => action === "approve" || confirm(action === "reject"
-            ? `Reject this painting by ${painting.creator}?` : `Remove this painting by ${painting.creator} from show?`);
-          const button = (label, action, className) => {
-            const node = el("button", label, className);
-            node.type = "button";
-            node.addEventListener("click", async () => {
-              if (!sure(action)) {
-                return;
-              }
-              node.disabled = true;
-              const result = await api("masterpiece", {id: painting.id, action});
-              setStatus($("masterpiece-status"), result.data.ok || result.data.error || "That did not work.", !result.ok);
-              refresh();
-            });
-            return node;
-          };
-          if (painting.status === "waiting") {
-            buttons.append(button("Approve", "approve", "primary"), button("Reject", "reject", "danger"));
-          }
-          else {
-            buttons.append(button("Remove", "remove", "danger"));
-          }
-          const open = el("button", "Open account");
-          open.type = "button";
-          open.addEventListener("click", () => {
-            openAccountTab(painting.creator);
-          });
-          buttons.append(open);
-          box.append(buttons);
-          return box;
-        }));
+        $("masterpieces").replaceChildren(...paintings.map(painting => masterpieceCard(painting, which, "masterpiece-status")));
       };
 
       $("masterpiece-filter").addEventListener("change", () => refresh());
@@ -3023,34 +3036,65 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         });
         return picture;
       };
-
-      // ---- what players made that waits for approval (lib/playeritems.js)
+      const reviewCard = (entry, strikes, statusId) => {
+        const card = el("div", undefined, "review-card");
+        const art = el("div", entry.artUrl ? undefined : "No picture", "art");
+        if (entry.artUrl) {
+          art.append(guardedPicture(entry.artUrl));
+        }
+        const about = el("div");
+        about.append(el("strong", entry.name), el("div", `${entry.waiting === "item" ? "A new item" : "A new picture"} · ${entry.kind === "den" ? "den item" : "clothing"} from ${entry.baseName}`, "hint"),
+          el("div", `by ${entry.maker} · ${when(entry.createdAt)}${entry.makerStrikes ? ` · ${entry.makerStrikes} of ${strikes} pictures turned away before` : ""}`, "hint"));
+        const buttons = el("div", undefined, "buttons");
+        const decide = approve => async () => {
+          if (!approve && !confirm(`Turn away ${entry.waiting === "item" ? "the item" : "the picture of"} "${entry.name}" by ${entry.maker}?`)) {
+            return;
+          }
+          const result = await api("review", {kind: entry.kind, id: entry.id, approve});
+          setStatus($(statusId), said(result), !result.ok);
+          await refresh();
+        };
+        buttons.append(button("Approve", decide(true), "primary"), button("Turn away", decide(false), "danger"));
+        card.append(art, about, buttons);
+        return card;
+      };
+      let approvalsPane = "";
+      let supportItemsShown = "";
+      let supportPaintingsShown = "";
+      const showApprovalsPane = pane => {
+        approvalsPane = pane;
+        $("approvals-items").hidden = pane !== "items";
+        $("approvals-paintings").hidden = pane !== "paintings";
+        $("approvals-tab-items").setAttribute("aria-pressed", String(pane === "items"));
+        $("approvals-tab-paintings").setAttribute("aria-pressed", String(pane === "paintings"));
+      };
+      $("approvals-tab-items").addEventListener("click", () => showApprovalsPane("items"));
+      $("approvals-tab-paintings").addEventListener("click", () => showApprovalsPane("paintings"));
+      const renderSupportApprovals = data => {
+        const items = data.items || [];
+        const paintings = (data.paintings || []).map(painting => ({...painting, status: "waiting"}));
+        $("approvals-count-items").textContent = items.length ? ` (${items.length})` : "";
+        $("approvals-count-paintings").textContent = paintings.length ? ` (${paintings.length})` : "";
+        if (!approvalsPane) {
+          showApprovalsPane(items.length || !paintings.length ? "items" : "paintings");
+        }
+        $("no-support-items").hidden = items.length > 0;
+        const shownItems = JSON.stringify(items);
+        if (shownItems !== supportItemsShown) {
+          supportItemsShown = shownItems;
+          $("support-items").replaceChildren(...items.map(entry => reviewCard(entry, data.strikes, "support-status")));
+        }
+        $("no-support-paintings").hidden = paintings.length > 0;
+        const shownPaintings = paintings.map(painting => painting.id).join(" ");
+        if (shownPaintings !== supportPaintingsShown) {
+          supportPaintingsShown = shownPaintings;
+          $("support-paintings").replaceChildren(...paintings.map(painting => masterpieceCard(painting, "waiting", "support-status")));
+        }
+      };
       const renderReview = data => {
         const waiting = data.waiting || [];
         $("no-review").hidden = waiting.length > 0;
-        $("review-list").replaceChildren(...waiting.map(entry => {
-          const card = el("div", undefined, "review-card");
-          const art = el("div", entry.artUrl ? undefined : "No picture", "art");
-          if (entry.artUrl) {
-            art.append(guardedPicture(entry.artUrl));
-          }
-          const about = el("div");
-          about.append(el("strong", entry.name), el("div", `${entry.waiting === "item" ? "A new item" : "A new picture"} · ${entry.kind === "den" ? "den item" : "clothing"} from ${entry.baseName}`, "hint"),
-            el("div", `by ${entry.maker} · ${when(entry.createdAt)}${entry.makerStrikes ? ` · ${entry.makerStrikes} of ${data.strikes} pictures turned away before` : ""}`, "hint"));
-          const buttons = el("div", undefined, "buttons");
-          const decide = approve => async () => {
-            // turning away asks first; approving does not
-            if (!approve && !confirm(`Turn away ${entry.waiting === "item" ? "the item" : "the picture of"} "${entry.name}" by ${entry.maker}?`)) {
-              return;
-            }
-            const result = await api("review", {kind: entry.kind, id: entry.id, approve});
-            setStatus($("review-status"), said(result), !result.ok);
-            await refresh();
-          };
-          buttons.append(button("Approve", decide(true), "primary"), button("Turn away", decide(false), "danger"));
-          card.append(art, about, buttons);
-          return card;
-        }));
+        $("review-list").replaceChildren(...waiting.map(entry => reviewCard(entry, data.strikes, "review-status")));
         const stopped = data.stopped || [];
         $("no-stopped").hidden = stopped.length > 0;
         $("stopped-list").replaceChildren(...stopped.map(username => {
@@ -3841,8 +3885,20 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           $("report-count").textContent = counts.data.reports ? ` (${counts.data.reports})` : "";
           $("support-count").textContent = counts.data.support ? ` (${counts.data.support})` : "";
           $("masterpiece-count").textContent = counts.data.masterpieces ? ` (${counts.data.masterpieces})` : "";
-          const waiting = counts.data.reports + counts.data.support + counts.data.masterpieces;
+          const waiting = counts.data.reports + counts.data.support;
           document.title = waiting ? `(${waiting}) Server admin` : "Server admin";
+        }
+        const review = await api("review");
+        if (review.ok) {
+          const waiting = review.data.waiting || [];
+          const keyOf = entry => `${entry.kind}:${entry.id}`;
+          reviewWaiting = waiting.length;
+          $("review-count").textContent = waiting.length ? ` (${waiting.length})` : "";
+          if (reviewSeen !== null && waiting.some(entry => !reviewSeen.has(keyOf(entry)))) {
+            setStatus($("updated"), "New custom item waiting for approval");
+            if (tab !== "items") { }
+          }
+          reviewSeen = new Set(waiting.map(keyOf));
         }
         // out of sight, only that; the rest when it is back.
         if (document.hidden) {

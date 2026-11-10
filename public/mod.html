@@ -541,6 +541,8 @@ nav button[aria-selected="true"],
 .player-row[aria-current="true"],
 .chips button[aria-pressed="true"],
 #wear-rule-animal button[aria-pressed="true"] { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
+.approvals-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.approvals-tabs button[aria-pressed="true"] { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
 nav button[aria-selected="true"] { font-weight: 700; }
 nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #fff; color: var(--red-deep); }
 .chips button[aria-pressed="true"] { font-weight: 700; }
@@ -670,7 +672,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <button role="tab" data-tab="invites" data-needs="invites.manage" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9993;</span>Invites</button>
           <button role="tab" data-tab="stats" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9636;</span>Stats</button>
           <button role="tab" data-tab="mod-log" data-needs="staff.log" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9776;</span>Mod log</button>
-          <button role="tab" data-tab="review" data-needs="items.approve" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10004;</span>Review</button>
+          <button role="tab" data-tab="review" data-needs="items.approve" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10004;</span>Review<span id="review-count"></span></button>
           <button role="tab" data-tab="wear-rules" data-needs="items.restrict" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="items" data-needs="items.create" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10070;</span>Items</button>
           <button role="tab" data-tab="music" data-needs="music.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
@@ -1051,6 +1053,23 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <h2 style="margin-top:20px">Username changes</h2>
           <div id="name-requests"></div>
           <div class="empty" id="no-name-requests" hidden>Nothing here.</div>
+          <div id="approvals" hidden>
+            <h2 style="margin-top:20px">Waiting for approval</h2>
+            <div class="approvals-tabs">
+              <button type="button" id="approvals-tab-items" aria-pressed="false">Custom items<span id="approvals-count-items"></span></button>
+              <button type="button" id="approvals-tab-paintings" aria-pressed="false">Masterpieces<span id="approvals-count-paintings"></span></button>
+            </div>
+            <div id="approvals-items" hidden>
+              <p class="hint"></p>
+              <div class="review-list" id="request-items"></div>
+              <div class="empty" id="no-request-items" hidden>Nothing here.</div>
+            </div>
+            <div id="approvals-paintings" hidden>
+              <p class="hint"></p>
+              <div class="paintings" id="request-paintings"></div>
+              <div class="empty" id="no-request-paintings" hidden>Nothing here.</div>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -1543,6 +1562,36 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         setStatus(element, said(result), !result.ok);
         toast(said(result), !result.ok, result.ok ? undo : null);
       };
+      const beep = () => {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          gain.gain.value = 0.05;
+          osc.frequency.value = 880;
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        } catch (err) {}
+      };
+
+      const alertStaff = (title, body, open) => {
+        toast(`${title}: ${body}`, false, ["Open", open]);
+        beep();
+        try {
+          if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+            const note = new Notification(title, {body});
+            note.onclick = () => { window.focus(); open(); note.close(); };
+          }
+        } catch (err) {}
+      };
+
+      document.addEventListener("click", () => {
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+        }
+      }, {once: true});
 
       const stateTags = player => {
         const tags = [];
@@ -2300,6 +2349,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           return box;
         }));
         $("no-name-requests").hidden = data.names.length > 0;
+        renderApprovals(data);
       };
       $("request-filter").addEventListener("change", () => refresh());
 
@@ -2364,6 +2414,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
 
       // ---- masterpieces (lib/masterpieces.js): the ones asked for, and the
       // ones approved last, to take one back that should not have been.
+      let paintingStatusId = "masterpiece-status";
       let paintingList = [];
       let recentList = [];
       let paintingsShown = "";
@@ -2384,12 +2435,12 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         }
         const result = await api("masterpiece", {id: painting.id, action: approve ? "approve" : waiting ? "reject" : "remove"});
         if (approve && result.ok) {
-          setStatus($("masterpiece-status"), `Approved ${painting.creator}'s painting.`);
+          setStatus($(paintingStatusId), `Approved ${painting.creator}'s painting.`);
           toast(`Approved ${painting.creator}'s painting.`, false,
             ["Reject it", () => judge({...painting, status: "approved", approvedAt: Math.floor(Date.now() / 1000)}, false)]);
         }
         else {
-          tell($("masterpiece-status"), result);
+          tell($(paintingStatusId), result);
         }
         await refresh();
         previewAgain();
@@ -2436,6 +2487,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
         const marked = (list, status) => list.map(painting => ({...painting, status}));
         paintingList = which === "all" ? [...marked(data.waiting, "waiting"), ...marked(data.approved, "approved")] : marked(data[which], which);
         recentList = marked(data.recent || [], "approved");
+        paintingStatusId = "masterpiece-status";
         $("masterpiece-count").textContent = data.waitingCount ? String(data.waitingCount) : "";
         $("no-masterpieces").hidden = paintingList.length > 0;
         // the last approved are already first among the ones on show
@@ -3000,7 +3052,8 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       // it can be judged too and the arrow keys go through the others.
       let reviewList = [];
       let reviewShown = "";
-      const reviewButtons = entry => {
+      let reviewStatusId = "review-status";
+      const reviewButtons = (entry, statusId) => {
         const buttons = el("div", undefined, "buttons");
         const decide = approve => async () => {
           // turning away asks first; approving does not
@@ -3008,7 +3061,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
             return;
           }
           const result = await api("review", {kind: entry.kind, id: entry.id, approve});
-          tell($("review-status"), result);
+          tell($(statusId), result);
           await refresh();
           previewAgain();
         };
@@ -3017,9 +3070,82 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       };
       const reviewPictures = () => reviewList.filter(entry => entry.artUrl).map(entry => ({src: entry.artUrl, small: true, title: entry.name,
         detail: `${entry.waiting === "item" ? "A new item" : "A new picture"} by ${entry.maker}`, buttons: () => reviewButtons(entry)}));
-      const renderReview = data => {
+      const reviewCard = (entry, strikes, statusId) => {
+        const card = el("div", undefined, "review-card");
+        const art = el("div", entry.artUrl ? undefined : "No picture", "art");
+        if (entry.artUrl) {
+          const picture = el("img");
+          picture.src = entry.artUrl;
+          picture.alt = `The picture of ${entry.name}`;
+          picture.addEventListener("click", () => openPreview(reviewPictures,
+            reviewList.filter(one => one.artUrl).findIndex(one => one.kind === entry.kind && one.id === entry.id)));
+          art.append(picture);
+        }
+        const about = el("div");
+        about.append(el("strong", entry.name), el("div", `${entry.waiting === "item" ? "A new item" : "A new picture"} · ${entry.kind === "den" ? "den item" : "clothing"} from ${entry.baseName}`, "hint"),
+          el("div", `by ${entry.maker} · ${when(entry.createdAt)}${entry.makerStrikes ? ` · ${entry.makerStrikes} of ${strikes} pictures turned away before` : ""}`, "hint"));
+        card.append(art, about, reviewButtons(entry, statusId));
+        return card;
+      };
+      let approvalsPane = "";
+      let requestItemsShown = "";
+      let requestPaintingsShown = "";
+      let requestPaintings = [];
+      const showApprovalsPane = pane => {
+        approvalsPane = pane;
+        $("approvals-items").hidden = pane !== "items";
+        $("approvals-paintings").hidden = pane !== "paintings";
+        $("approvals-tab-items").setAttribute("aria-pressed", String(pane === "items"));
+        $("approvals-tab-paintings").setAttribute("aria-pressed", String(pane === "paintings"));
+      };
+      $("approvals-tab-items").addEventListener("click", () => showApprovalsPane("items"));
+      $("approvals-tab-paintings").addEventListener("click", () => showApprovalsPane("paintings"));
+      const renderApprovals = data => {
+        const items = data.items;
+        const paintings = data.paintings;
+        $("approvals").hidden = !items && !paintings;
+        if (!items && !paintings) {
+          return;
+        }
+        $("approvals-tab-items").hidden = !items;
+        $("approvals-tab-paintings").hidden = !paintings;
+        $("approvals-count-items").textContent = items && items.length ? ` (${items.length})` : "";
+        $("approvals-count-paintings").textContent = paintings && paintings.length ? ` (${paintings.length})` : "";
+        if ((approvalsPane === "items" && !items) || (approvalsPane === "paintings" && !paintings)) {
+          approvalsPane = "";
+        }
+        if (!approvalsPane) {
+          showApprovalsPane((items && items.length) || !paintings ? "items" : "paintings");
+        }
+        reviewStatusId = "request-status";
+        paintingStatusId = "request-status";
+        if (items) {
+          reviewList = items;
+          $("no-request-items").hidden = items.length > 0;
+          const shown = JSON.stringify(items);
+          if (shown !== requestItemsShown) {
+            requestItemsShown = shown;
+            $("request-items").replaceChildren(...items.map(entry => reviewCard(entry, data.strikes, "request-status")));
+          }
+        }
+        if (paintings) {
+          requestPaintings = paintings.map(painting => ({...painting, status: "waiting"}));
+          $("no-request-paintings").hidden = requestPaintings.length > 0;
+          const shown = requestPaintings.map(painting => painting.id).join(" ");
+          if (shown !== requestPaintingsShown) {
+            requestPaintingsShown = shown;
+            paintingHints = [];
+            $("request-paintings").replaceChildren(...requestPaintings.map(painting => paintingCard(painting, () => requestPaintings)));
+          }
+          for (const [words, painting] of paintingHints) {
+            words.textContent = paintingWords(painting);
+          }
+        }
+      };
+        const renderReview = data => {
         const waiting = data.waiting || [];
         reviewList = waiting;
+        reviewStatusId = "review-status";
         $("no-review").hidden = waiting.length > 0;
         // drawn again only when it changed, so the pictures do not flicker.
         const shown = JSON.stringify([waiting, data.stopped]);
@@ -3027,23 +3153,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           return;
         }
         reviewShown = shown;
-        $("review-list").replaceChildren(...waiting.map(entry => {
-          const card = el("div", undefined, "review-card");
-          const art = el("div", entry.artUrl ? undefined : "No picture", "art");
-          if (entry.artUrl) {
-            const picture = el("img");
-            picture.src = entry.artUrl;
-            picture.alt = `The picture of ${entry.name}`;
-            picture.addEventListener("click", () => openPreview(reviewPictures,
-              reviewList.filter(one => one.artUrl).findIndex(one => one.kind === entry.kind && one.id === entry.id)));
-            art.append(picture);
-          }
-          const about = el("div");
-          about.append(el("strong", entry.name), el("div", `${entry.waiting === "item" ? "A new item" : "A new picture"} · ${entry.kind === "den" ? "den item" : "clothing"} from ${entry.baseName}`, "hint"),
-            el("div", `by ${entry.maker} · ${when(entry.createdAt)}${entry.makerStrikes ? ` · ${entry.makerStrikes} of ${data.strikes} pictures turned away before` : ""}`, "hint"));
-          card.append(art, about, reviewButtons(entry));
-          return card;
-        }));
+        $("review-list").replaceChildren(...waiting.map(entry => reviewCard(entry, data.strikes, "review-status")));
         const stopped = data.stopped || [];
         $("no-stopped").hidden = stopped.length > 0;
         $("stopped-list").replaceChildren(...stopped.map(username => {
@@ -3070,6 +3180,9 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
       });
 
       let permissions = new Set(); // what the signed-in role may do (GET /mod/api/me)
+      let reviewSeen = null;
+      let paintingsSeen = null;
+      let reviewWaiting = 0;
       let myName = ""; // and their username, from the same
 
       const renderServerHealth = data => {
@@ -3681,9 +3794,46 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           for (const [id, count] of [["home-reports", counts.data.reports], ["home-requests", counts.data.requests], ["home-paintings", counts.data.paintings]]) {
             $(id).closest(".tile").classList.toggle("attention", count > 0);
           }
-          // what waits, in the page's title too, for when it is in another tab.
-          const waiting = counts.data.reports + counts.data.requests + counts.data.paintings;
-          document.title = waiting ? `(${waiting}) Moderators` : "Moderators";
+          const waiting = counts.data.reports + counts.data.requests + (permissions.has("masterpieces.approve") ? 0 : counts.data.paintings);
+          if (permissions.has("items.approve")) {
+            const review = await api("review");
+            if (review.ok) {
+              const waiting = review.data.waiting || [];
+              const keyOf = entry => `${entry.kind}:${entry.id}`;
+              reviewWaiting = waiting.length;
+              $("review-count").textContent = waiting.length ? String(waiting.length) : "";
+              if (reviewSeen !== null) {
+                const fresh = waiting.filter(entry => !reviewSeen.has(keyOf(entry)));
+                if (fresh.length) {
+                  const first = fresh[0];
+                  alertStaff(
+                    "Custom item waiting",
+                    fresh.length === 1 ? `${first.maker} made "${first.name}"` : `${fresh.length} items are waiting for approval`,
+                    () => showTab("review"));
+                }
+              }
+              reviewSeen = new Set(waiting.map(keyOf));
+            }
+          }
+          const waitingTotal = (counts.ok ? counts.data.reports + counts.data.requests + (permissions.has("masterpieces.approve") ? 0 : counts.data.paintings) : 0) + reviewWaiting;
+          document.title = waitingTotal ? `(${waitingTotal}) Moderators` : "Moderators";
+        }
+        if (permissions.has("masterpieces.approve")) {
+          const found = await api("masterpieces?creator=&mine=0");
+          if (found.ok) {
+            const waitingPaintings = found.data.waiting || [];
+            console.log("paintings waiting:", waitingPaintings.length, "seen before:", paintingsSeen && paintingsSeen.size);
+            if (paintingsSeen !== null) {
+              const fresh = waitingPaintings.filter(painting => !paintingsSeen.has(painting.id));
+              if (fresh.length) {
+                alertStaff(
+                  "Masterpiece waiting",
+                  fresh.length === 1 ? `${fresh[0].creator} made a masterpiece` : `${fresh.length} masterpieces are waiting for approval`,
+                  () => showTab("masterpieces"));
+              }
+            }
+            paintingsSeen = new Set(waitingPaintings.map(painting => painting.id));
+          }
         }
         if (shown === "home") {
           if (permissions.has("items.create") && !$("quick-lock-q").value.trim()) {
