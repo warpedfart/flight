@@ -675,6 +675,7 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
           <button role="tab" data-tab="review" data-needs="items.approve" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10004;</span>Review<span id="review-count"></span></button>
           <button role="tab" data-tab="wear-rules" data-needs="items.restrict" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9873;</span>Wear rules</button>
           <button role="tab" data-tab="items" data-needs="items.create" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#10070;</span>Items</button>
+          <button role="tab" data-tab="gamefiles" data-needs="player.view" aria-selected="false"><span class="icon" aria-hidden="true">&#9783;</span>Game files</button>
           <button role="tab" data-tab="music" data-needs="music.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9835;</span>Music</button>
           <button role="tab" data-tab="videos" data-needs="theatre.upload" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9654;</span>Theatre videos</button>
           <button role="tab" data-tab="theatre" data-needs="theater.control" aria-selected="false" hidden><span class="icon" aria-hidden="true">&#9654;</span>Theatre</button>
@@ -1264,6 +1265,31 @@ nav button[aria-selected="true"] span[id$="-count"]:not(:empty) { background: #f
             </div>
           </div>
           <p class="status" id="control-status" role="status"></p>
+        </section>
+      </div>
+
+      <!-- GAME FILES ACCESS FOR MODS AND UP -->
+      <div data-view="gamefiles" hidden>
+        <section>
+          <p class="hint">What each of the game's files is. Search by a name ("call of the alphas"), an id ("1233"), a kind and an id ("party:6"), a file's path ("media/1233") or a hashed file name as the cache and the CDN have it (32 letters and digits). The def packs say what each thing uses: a party its room and art, a den item its picture, a shop its stock. Docs: docs/game-files.md in the repository.</p>
+          <form class="toolbar" id="gf-form">
+            <input id="gf-q" type="search" placeholder="Name, id, kind:id, path or hash" aria-label="Look up a game file">
+            <select id="gf-kind" aria-label="Kind"><option value="">Every kind</option></select>
+            <button type="submit" class="primary">Look up</button>
+            <button type="button" id="gf-problems">Broken links</button>
+          </form>
+          <div class="gf-kinds" id="gf-kinds"></div>
+          <p class="status" id="gf-status" role="status"></p>
+          <div class="gf-layout">
+            <div>
+              <div id="gf-file"></div>
+              <div class="table-wrap"><table>
+                <thead><tr><th>Kind</th><th class="num">Id</th><th>Name</th><th class="num">Files</th></tr></thead>
+                <tbody id="gf-results"></tbody>
+              </table></div>
+            </div>
+            <div id="gf-detail"><p class="hint">Pick something on the left to see its files, what it names, and what names it.</p></div>
+          </div>
         </section>
       </div>
 
