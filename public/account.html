@@ -151,6 +151,10 @@ td.bad::before { content: "! "; }
 .ban-head h2 { margin: 0; font-size: 22px; }
 #ban-section pre { margin: 0 0 12px; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
 #ban-section h3 { margin: 18px 0 0; }
+section.fold > details > summary { cursor: pointer; }
+section.fold > details > summary h2 { display: inline; margin: 0; }
+section.fold > details[open] > summary { margin-bottom: 10px; }
+.pager { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
     </style>
     <style id="dove-theme">
 @font-face { font-family: "DigitalDelivery"; font-weight: 400; font-display: swap; src: url("/fonts/CCDigitalDelivery-Regular.otf") format("opentype"); }
@@ -459,6 +463,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
         <section>
           <h2>Buddies</h2>
           <div id="buddies"></div>
+          <div class="pager" id="pager-buddies" hidden></div>
           <p class="hint" id="no-buddies" hidden>No buddies yet.</p>
           <p class="status" id="buddy-status" role="status"></p>
         </section>
@@ -483,6 +488,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
               <tbody id="trades"></tbody>
             </table>
           </div>
+          <div class="pager" id="pager-trades" hidden></div>
           <p class="hint" id="no-trades" hidden>No trades yet.</p>
         </section>
 
@@ -510,6 +516,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
         <section>
           <h2>Den visitors</h2>
           <div id="visits"></div>
+          <div class="pager" id="pager-visits" hidden></div>
           <p class="hint" id="no-visits" hidden>No visitors yet.</p>
         </section>
 
@@ -531,6 +538,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
           <h2>My items</h2>
           <p class="hint" id="my-items-hint"></p>
           <div class="my-items" id="my-items"></div>
+          <div class="pager" id="pager-items" hidden></div>
           <p class="hint" id="no-my-items" hidden>You have not made any items yet. Make one in the game: Settings, then Item Maker.</p>
           <p class="status" id="my-items-status" role="status"></p>
         </section>
@@ -661,6 +669,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
               <tbody id="history"></tbody>
             </table>
           </div>
+          <div class="pager" id="pager-history" hidden></div>
           <p class="hint" id="no-history" hidden>None yet.</p>
           <div class="row"><button id="everywhere" type="button">Sign out everywhere</button></div>
           <p class="status" id="history-status" role="status"></p>
@@ -741,6 +750,35 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
       const setStatus = (id, text, bad = false) => {
         $(id).textContent = text;
         $(id).classList.toggle("bad", bad);
+      };
+
+      // pagination feature for long lists that show 1-25
+      const PAGE_SIZE = 25;
+      const pageAt = {buddies: 0, trades: 0, visits: 0, items: 0, history: 0};
+      const paginate = (key, list) => {
+        const count = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+        pageAt[key] = Math.min(pageAt[key], count - 1);
+        const start = pageAt[key] * PAGE_SIZE;
+        const bar = $(`pager-${key}`);
+        bar.hidden = list.length <= PAGE_SIZE;
+        if (list.length > PAGE_SIZE) {
+          const prev = el("button", "Previous");
+          prev.type = "button";
+          prev.disabled = pageAt[key] === 0;
+          prev.addEventListener("click", () => {
+            pageAt[key]--;
+            render();
+          });
+          const next = el("button", "Next");
+          next.type = "button";
+          next.disabled = pageAt[key] >= count - 1;
+          next.addEventListener("click", () => {
+            pageAt[key]++;
+            render();
+          });
+          bar.replaceChildren(prev, el("span", `${start + 1}–${Math.min(start + PAGE_SIZE, list.length)} of ${list.length}`, "hint"), next);
+        }
+        return list.slice(start, start + PAGE_SIZE);
       };
 
       const api = async (path, body) => {
@@ -830,12 +868,12 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
       // own (sent as it is to /api/itemart, which checks and cleans it), delete.
       const renderMyItems = () => {
         const items = account.customItems || [];
-        const limits = account.customItemLimits || {perDay: 0, inAll: 0};
-        $("my-items-hint").textContent = `Items you made in the game's Item Maker: ${items.length} of ${limits.inAll}, up to ${limits.perDay} a day. `
+        const limits = account.customItemLimits || {perDay: 10, inAll: 100};
+        $("my-items-hint").textContent = `Items you made in the game's Item Maker: ${items.length} of 100, up to 10 a day. `
           + "A picture (any kind: one too big is made smaller) is shown as the item's icon, and for a den item in the den, once a moderator has checked it. "
           + (account.picturesStopped ? "A moderator has turned off picture uploads for your account." : "Pictures must suit everyone: one turned away counts against you.");
         $("no-my-items").hidden = items.length > 0;
-        $("my-items").replaceChildren(...items.map(item => {
+        $("my-items").replaceChildren(...paginate("items", items).map(item => {
           const card = el("div", undefined, "my-item");
           const art = el("div", item.art ? undefined : "No picture", "art");
           if (item.art) {
@@ -1043,7 +1081,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
 
         // notes are left alone while one is being typed.
         if (!$("buddies").contains(document.activeElement)) {
-          $("buddies").replaceChildren(...account.buddyList.map(buddy => {
+          $("buddies").replaceChildren(...paginate("buddies", account.buddyList).map(buddy => {
             const row = el("div", undefined, "switch");
             const text = el("div", undefined, "what");
             text.append(el("b", buddy.name), el("span", buddy.online ? "Playing now" : "Offline", "hint"));
@@ -1072,7 +1110,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
         }));
         $("no-blocked").hidden = account.blocked.length > 0;
 
-        $("trades").replaceChildren(...account.trades.map(trade => {
+        $("trades").replaceChildren(...paginate("trades", account.trades).map(trade => {
           const row = el("tr");
           row.append(el("td", when(trade.at)), el("td", trade.with), el("td", trade.got.join(", ")), el("td", trade.gave.join(", ")));
           return row;
@@ -1098,7 +1136,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
           [["Withdraw", {action: "withdrawOffer", to: offer.to, id: offer.id}]])));
         $("no-offers").hidden = account.offers.incoming.length + account.offers.outgoing.length > 0;
 
-        $("visits").replaceChildren(...account.denVisits.map(visit => {
+        $("visits").replaceChildren(...paginate("visits", account.denVisits).map(visit => {
           const entry = el("div", undefined, "entry");
           entry.append(el("b", visit.name), ` · ${when(visit.at)}`);
           return entry;
@@ -1116,7 +1154,7 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
         $("lock").textContent = account.locked ? "Unlock" : "Lock";
         $("lock").className = account.locked ? "primary" : "danger";
 
-        $("history").replaceChildren(...account.history.map(login => {
+        $("history").replaceChildren(...paginate("history", account.history).map(login => {
           const row = el("tr");
           row.append(el("td", when(login.at)), el("td", VIA[login.via] || login.via), el("td", login.address || "unknown"),
             el("td", login.ok ? "Signed in" : "Wrong password", login.ok ? "" : "bad"));
@@ -1719,6 +1757,36 @@ body > .theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 50; }
       });
 
       load();
+    </script>
+
+    <script>
+      "use strict";
+
+      for (const section of document.querySelectorAll("#page > section")) {
+        const heading = section.querySelector(":scope > h2");
+        if (!heading || section.id === "ban-section" || section.id === "rename-section" || heading.textContent === "Overview") {
+          continue;
+        }
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.append(heading);
+        details.open = true;
+        details.append(summary, ...section.childNodes);
+        section.append(details);
+        section.classList.add("fold");
+      }
+
+      const watchStatus = new MutationObserver(records => {
+        for (const record of records) {
+          const box = record.target.closest("section.fold > details");
+          if (box && record.target.textContent) {
+            box.open = true;
+          }
+        }
+      });
+      for (const status of document.querySelectorAll("#page .status")) {
+        watchStatus.observe(status, {childList: true});
+      }
     </script>
 </body>
 </html>
