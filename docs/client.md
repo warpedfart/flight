@@ -63,21 +63,30 @@ For each class: the methods changed and added against the untouched original (co
 
 ### gui.MySettings
 
-- `swf-src/MySettings.as`, 546 lines
+- `swf-src/MySettings.as`, 552 lines
 - original: `tools/decompiled/gui/MySettings.as`
 - **changed:** `setupContent`
 - **added:** `showThemeList`, `buildThemeList`, `buildSubList`, `showSavedList`, `onSavedFailed`, `onSavedList`
 
-> a player's own items (AJClient's Item Maker) the pictures players give their items (AJClient.customArtOn) the world picker (gui.ServerSelector): the server's worlds, config.shards, listed by the server's answer to "rm"
+> a player's own items (AJClient's Item Maker) the pictures players give their items (AJClient.customArtOn) the older loading screen art, or the game's (LoadProgress.oldScreenOn)
 
 ### gui.itemWindows.ItemWindowToggle
 
-- `swf-src/ItemWindowToggle.as`, 967 lines
+- `swf-src/ItemWindowToggle.as`, 982 lines
 - original: `tools/decompiled/gui/itemWindows/ItemWindowToggle.as`
 - **changed:** `ItemWindowToggle`, `setChildrenAndInitialConditions`, `handleMouseDown`, `handleMouseMove`, `handleStopScrubbing`
-- **added:** `showHouseIcon`, `showWasd`, `showChoice`, `setChoice`, `showGraphics`, `showPerformance`, `nextPerformance`, `showFrameRate`, `nextFrameRate`, `showCamera`, `setWasd`, `blockedAreHidden`, `showHideBlocked`, `setHideBlocked`, `showCustomArt`, `setCustomArt`
+- **added:** `showHouseIcon`, `showWasd`, `showChoice`, `setChoice`, `showGraphics`, `showPerformance`, `nextPerformance`, `showFrameRate`, `nextFrameRate`, `showCamera`, `setWasd`, `blockedAreHidden`, `showHideBlocked`, `setHideBlocked`, `showCustomArt`, `showLoadScreen`, `setCustomArt`
 
 > music or sound effects (AJClient's sound settings) the settings artwork has no house among its icons, so the rows for den layouts borrow the picture of the den button on the game's bar. if that cannot be drawn, the row keeps the icon it has.
+
+### gui.itemWindows.ItemWindowAdventure
+
+- `swf-src/ItemWindowAdventure.as`, 195 lines
+- original: `tools/decompiled/gui/itemWindows/ItemWindowAdventure.as`
+- **changed:** `setChildrenAndInitialConditions`, `performContinueChecks`
+- **added:** `playable`
+
+> this server: see playable() below this server: whether the adventure may be picked. the game hides the row's "tag" when it may not; the banners of the event adventures (Bitter Sweets 46, Twists and Turns 62) have no tag at all, and
 
 ### gui.ReportAPlayer
 
@@ -569,6 +578,96 @@ For each class: the methods changed and added against the untouched original (co
 - **changed:** `resizeAndPositionIcon`, `listenToMouse`
 
 > a custom item's picture (DenItemHelper.loadCustomArt) is a Bitmap, not a MovieClip: no "icon" frame, and nothing to tell the mouse
+
+### gui.DenUi
+
+- `swf-src/DenUi.as`, 450 lines
+
+> the look of this server's den editor additions (the layers panel, the pick bar, prefabs), drawn to match the game's own den editor (HUDAssets' DenEditorAsset and DenAudioPopupSkin): a wooden frame, a cream inside, a gold title strip, brown words in the game's font, and
+
+### gui.DenLayersPanel
+
+- `swf-src/DenLayersPanel.as`, 1718 lines
+
+> the den editor's layers panel (this server): every item in the den, front first, in four bands (above players, by position, below players, on the floor), groups as rows that open to their items. a row is clicked to choose its item (even one that is locked, hidden or
+
+### gui.DenPrefabs
+
+- `swf-src/DenPrefabs.as`, 1357 lines
+
+> the den editor's prefab tab (this server): items laid out together, saved from the den (the pick bar's "Save prefab", or this tab's first tile), and put down again as one group in the middle of the screen. what the player has none of free is added to their den items first, free,
+
+### gui.DenShare
+
+- `swf-src/DenShare.as`, 550 lines
+
+> the whole den, from buttons by the den editor's Shop button (this server): a picture of it saved to a file, and its layout shared as a file or a code and laid out again from one. the server's side is lib/denlayouts.js and the "dl*" messages in lib/dens.js.
+
+### gui.DenContentShop
+
+- `swf-src/DenContentShop.as`, 1424 lines
+
+> the content shop (this server): its own den items (lib/contentpacks.js), opened from the den editor's top right. a game-styled frame laid out like a web shop: collections down the left, a search box, category chips, a page of item cards, a details box, and a cart that is bought
+
+### gui.AvatarLayersPanel
+
+- `swf-src/AvatarLayersPanel.as`, 704 lines
+
+> the avatar editor's layers panel (this server): the clothes the animal in the editor wears, the piece worn in front at the top, each with its icon, its name and where it goes (head, neck ...). a row is dragged up or down, or moved one place with its arrows, to wear it in front of
+
+### gui.AvatarOutfitsPanel
+
+- `swf-src/AvatarOutfitsPanel.as`, 546 lines
+
+> the avatar editor's outfits window (this server): the player's saved outfits ("!outfit save" or the button below), each with the icons of its pieces. "Wear" puts one on the animal in the editor (or the mannequin) as if its pieces were picked there, in the outfit's layer
+
+### it.gotoandplay.smartfoxserver.SmartFoxClient
+
+- `swf-src/SmartFoxClient.as`, 1558 lines
+- original: `tools/decompiled/it/gotoandplay/smartfoxserver/SmartFoxClient.as`
+- **changed:** `SmartFoxClient`, `set rawProtocolSeparator`, `isSecureSocketSupported`, `getConnectionUrl`, `handleSocketConnection`, `handleMessage`, `getSocketIpAddress`
+
+> Burrow: whether the socket is a SecureSocket, kept here. Ruffle (the game in a browser, /account/play) has no SecureSocket class, and "socketConnection is SecureSocket" threw #1065 there on every connect. the class is named only where it is made.
+
+### loadProgress.LoadProgress
+
+- `swf-src/LoadProgress.as`, 449 lines
+- original: `tools/decompiled/loadProgress/LoadProgress.as`
+- **changed:** `init`, `show`, `onLoadScreenComplete`, `startLoad`, `loadCompleteHandler`, `loadProgressHandler`
+- **added:** `loadScreenBytes`, `oldScreenOn`, `setOldScreen`, `giveScreen`, `fetchScreen`, `screenBytes`
+
+> which loading screen was last asked for: a fetch that comes back after another was asked for is dropped Burrow: on every player, as the Flash plugin had it by default Burrow: the screen's bytes (loadScreenBytes). in a browser
+
+### com.sbi.loader.SceneLoader
+
+- `swf-src/SceneLoader.as`, 369 lines
+- original: `tools/decompiled/com/sbi/loader/SceneLoader.as`
+- **changed:** `getOffset`, `newAsset`, `loadAsset`
+
+> Burrow: each asset's "complete" listener is added before its loadBytes, and in a browser its bytes go through SwfImports.strip (Ruffle never finished loading the world map's art that imports sharedFonts.swf). Burrow: an empty layer (one not loaded yet, as the world map's
+
+### com.sbi.loader.SwfImports
+
+- `swf-src/SwfImports.as`, 203 lines
+
+> Burrow: in a browser (Ruffle, /account/play), a SWF given to Loader.loadBytes that has an ImportAssets tag never finishes loading: no "init", no "complete", and whatever waits for it (the world map's scene) waits for good. the game's art imports "../sharedFonts.swf" with no names
+
+### game.GameBase
+
+- `swf-src/GameBase.as`, 744 lines
+- original: `tools/decompiled/game/GameBase.as`
+- **changed:** `gemMultiplierMediaHandler`
+
+> Burrow: in a browser each sound is known by the file it was asked for. Ruffle's Sound.url is not the address asked for, so handleAudioFilePreloaded found no names: every sound was null and the game stopped at its first (SoundManager.addSoundByName), on its
+
+### game.hedgeHog.HedgeHog
+
+- `swf-src/HedgeHog.as`, 1708 lines
+- original: `tools/decompiled/game/hedgeHog/HedgeHog.as`
+- **changed:** `setupLevel`
+- **added:** `drawMapOnce`
+
+> the level art's own drawMap calls each tile's block() nine times, with its neighbours added one by one; only the last call counts (block resets the tile first). Ruffle runs it too slowly and stops the script, so in a browser the maze is drawn here, one call per tile.
 
 ### room.DenItemHolder
 
