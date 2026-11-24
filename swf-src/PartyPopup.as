@@ -13,6 +13,7 @@ package Party
    import flash.utils.getTimer;
    import game.MinigameManager;
    import game.MinigameXtCommManager;
+   import gui.AdventureExpertPopup;
    import gui.DarkenManager;
    import gui.GuiManager;
    import gui.LoadingSpiral;
@@ -893,9 +894,8 @@ package Party
                }
                else
                {
-                  DarkenManager.showLoadingSpiral(true);
-                  QuestXtCommManager.sendQuestCreateJoinPublic(param1.currentTarget.defId);
                   onCloseBtn(null);
+                  AdventureExpertPopup.init(_loc2_.defId);
                }
             }
          }

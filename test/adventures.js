@@ -75,10 +75,16 @@ const run = async () => {
   // --- the adventure window's list: the playable ones, the tutorials left out
   ann.client.xt("gl", ann.roomId, LIST_ADVENTURES);
   const listed = (await ann.client.untilXt("gl")).slice(9);
-  for (const defId of ["14", "15", "16", "17", "18", "19", "20", "22", "23", "46", "62"]) {
+  for (const defId of ["14", "15", "16", "17", "18", "19", "20", "22", "23"]) {
     assert.ok(listed.includes(defId), `${defId} listed: ${listed.join(",")}`);
   }
   assert.ok(!listed.includes("39"), "the tutorial is not listed");
+  assert.ok(!listed.includes("46") && !listed.includes("62"), "the seasonal adventures are not in the list");
+
+  ann.client.xt("gl", ann.roomId, 283);
+  const seasonal = (await ann.client.untilXt("gl")).slice(9);
+  const month = new Date().getUTCMonth() + 1;
+  assert.deepStrictEqual(seasonal, month === 10 ? ["46"] : month === 11 ? ["62"] : [], `seasonal list for month ${month}`);
 
   // --- alone: Training Grounds starts at once, its script begins, and back
   ann.client.xt("qj", ann.roomId, ann.roomName, 15, 0, 0);
