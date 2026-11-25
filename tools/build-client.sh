@@ -79,7 +79,6 @@ set -- \
   game.distanceChallenge.DistanceChallenge DistanceChallenge.as \
   buddy.BuddyList BuddyList.as \
   Party.PartyPopup PartyPopup.as \
-  loadProgress.LoadProgress LoadProgress.as \
   gui.ECardInbox ECardInbox.as \
   game.SoundManager SoundManager.as \
   com.sbi.corelib.audio.SBMusic SBMusic.as \

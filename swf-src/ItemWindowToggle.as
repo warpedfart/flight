@@ -19,7 +19,6 @@ package gui.itemWindows
    import gui.GuiManager;
    import gui.MySettings;
    import gui.ServerSelector;
-   import loadProgress.LoadProgress;
    import localization.LocalizationManager;
    import room.RoomManagerWorld;
    
@@ -188,9 +187,6 @@ package gui.itemWindows
                break;
             case "customArt":
                showCustomArt();
-               break;
-            case "loadScreen":
-               showLoadScreen();
                break;
             case "wasd":
                showWasd();
@@ -496,13 +492,6 @@ package gui.itemWindows
          _window.labelTxtCont.labelTxt.text = AJClient.customArtOn() ? "Custom pictures: shown" : "Custom pictures: hidden";
       }
       
-      // "Loading screen": the game's art, or the older art
-      // (LoadProgress.oldScreenOn), kept on this computer
-      private function showLoadScreen() : void
-      {
-         showChoice(LoadProgress.oldScreenOn() ? "Loading screen: old" : "Loading screen: new",LoadProgress.oldScreenOn() ? "Use new" : "Use old");
-      }
-
       private function setCustomArt(param1:Boolean) : void
       {
          gMainFrame.userInfo.userVarCache.updateUserVar(9006,param1 ? 0 : 1);
@@ -737,10 +726,6 @@ package gui.itemWindows
                   break;
                case "customArt":
                   setCustomArt(!AJClient.customArtOn());
-                  break;
-               case "loadScreen":
-                  LoadProgress.setOldScreen(!LoadProgress.oldScreenOn());
-                  showLoadScreen();
                   break;
                case "wasd":
                   setWasd(!AJClient.wasdOn());

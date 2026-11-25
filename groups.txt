@@ -1,0 +1,109 @@
+[defs] 53 avatars, 417 rooms, 4407 clothing items, 5984 den items, 119 pets
+37:Crystals2DecorBlue  39:Crystals2DecorPink  251:Crystals2DecorAqua  252:Crystals2DecorOrange
+41:AlphaStoneGreen  57:AlphaStoneOrange
+50:CurvedChestPink  51:CurvedChestPurple  259:CurvedChestBlue  260:CurvedChestYellow
+53:StoneCarvedTable  2165:StoneCarvedTable
+56:FirepotGreen  263:FirepotBlue  264:FirepotPink
+67:HeartCouchGreen  68:HeartCouchPink  267:HeartCouchBlue  268:HeartCouchPurple
+69:Jar1Blue  70:Jar1Green  71:Jar1Pink  269:Jar1Purple  270:Jar1Yellow
+72:Jar2Blue  73:Jar2Green  74:Jar2Purple  271:Jar2Pink  272:Jar2Red
+75:Jar3Orange  76:Jar3Purple  77:Jar3Yellow  273:Jar3Blue  274:Jar3Pink
+78:Jar4Blue  79:Jar4Green  80:Jar4Red  275:Jar4Pink  276:Jar4Purple
+82:LavaLampGreen  83:LavaLampPink  84:LavaLampRed  277:LavaLampYellow
+86:MiniTreeGreen  87:MiniTreeRed  88:MiniTreeYellow
+90:PirateChestAqua  91:PirateChestBlue  92:PirateChestPink  278:PirateChestGreen  279:PirateChestPurple
+93:PotGreen  94:PotOrange  95:PotRed  280:PotBlue  281:PotPink
+98:Pottery1Green  99:Pottery1Purple
+100:Pottery2Aqua  101:Pottery2Orange  102:Pottery2Pink  282:Pottery2Blue  283:Pottery2Green
+103:Pottery3Green  104:Pottery3Orange  105:Pottery3Pink  284:Pottery3Blue  285:Pottery3Red
+106:Pottery4Aqua  107:Pottery4Blue  108:Pottery4Yellow  286:Pottery4Pink  287:Pottery4Purple
+109:RadioSmallBlue  110:RadioSmallBrown  111:RadioSmallPink  288:RadioSmallGreen  289:RadioSmallPurple
+112:RCcarBlue  113:RCcarGreen  114:RCcarPink
+115:RobotBlue  116:RobotGreen  117:RobotPurple  290:RobotPink  291:RobotYellow
+118:RugRound2Blue  119:RugRound2Green  120:RugRound2Pink
+121:RugRound3Aqua  122:RugRound3Green  123:RugRound3Red
+124:RugRoundGreen  125:RugRoundOrange  126:RugRoundPink
+127:RugSmallRoundGreen  128:RugSmallRoundPink  129:RugSmallRoundRed
+130:SleepingMat2Orange  131:SleepingMat2Purple  132:SleepingMat2Yellow  292:SleepingMat2Blue  293:SleepingMat2Pink
+133:SleepingMat3Green  134:SleepingMat3Red  135:SleepingMat3Yellow  294:SleepingMat3Blue  295:SleepingMat3Pink
+136:SleepingMat4Aqua  137:SleepingMat4Blue  138:SleepingMat4Pink  296:SleepingMat4Green  297:SleepingMat4Purple
+139:SleepingMat5Aqua  140:SleepingMat5Green  141:SleepingMat5Yellow  298:SleepingMat5Pink  299:SleepingMat5Purple
+142:SleepingMatGreen  143:SleepingMatOrange  144:SleepingMatPink  300:SleepingMatBlue  301:SleepingMatPurple
+146:SpeakersGreen  147:SpeakersOrange  148:SpeakersPink
+149:StatueWaveAqua  150:StatueWaveGreen  151:StatueWavePink  302:StatueWavePurple  303:StatueWaveYellow
+152:StripeCouchBlue  153:StripeCouchPink  154:StripeCouchYellow  304:StripeCouchAqua  305:StripeCouchPurple
+155:Table2Blue  156:Table2Green  157:Table2Pink
+158:TableBrown  159:TableGreen  160:TableRed  306:TableAqua  307:TablePink
+161:TeapotBlue  162:TeapotGreen  163:TeapotPink  308:TeapotOrange  309:TeapotPurple
+165:TrainGreen  166:TrainPurple  167:TrainRed
+169:VisitorCounterBlue  170:VisitorCounterGreen  171:VisitorCounterPink  310:VisitorCounterAqua  311:VisitorCounterOrange
+172:AbstractPaintingGreen  173:AbstractPaintingOrange  174:AbstractPaintingPink  312:AbstractPaintingBlue  313:AbstractPaintingPurple
+183:HeartLeafBlue  184:HeartLeafGreen  185:HeartLeafPink  314:HeartLeafRed  315:HeartLeafYellow
+190:MaskLargeAqua  191:MaskLargeBrown  192:MaskLargePink  316:MaskLargeBlue  317:MaskLargePurple
+193:MaskSmallGreen  194:MaskSmallOrange  195:MaskSmallPurple  318:MaskSmallBlue  319:MaskSmallPink
+196:MaskTallAqua  197:MaskTallOrange  198:MaskTallPurple  320:MaskTallBlue  321:MaskTallPink
+205:PaintingMediumGreen  206:PaintingMediumOrange  207:PaintingMediumPink  322:PaintingMediumBlue  323:PaintingMediumPurple
+224:SwordnShieldBlue  225:SwordnShieldGreen  226:SwordnShieldRed  324:SwordnShieldAqua  325:SwordnShieldPink
+227:ThreeSmallPaintingsBlue  228:ThreeSmallPaintingsGreen  229:ThreeSmallPaintingsRed  326:ThreeSmallPaintingsPink  327:ThreeSmallPaintingsYellow
+239:AnimalStatueAqua  240:AnimalStatuePurple
+241:BabyFernBlue  242:BabyFernPink
+243:BabyPalmAqua  244:BabyPalmPink
+247:Cactus2Blue  248:Cactus2Purple
+249:CactusAqua  250:CactusBrown
+253:Crystals3DecorBrown  254:Crystals3DecorPurple
+255:Crystals4DecorBlue  256:Crystals4DecorOrange
+257:CrystalsDecorBlue  258:CrystalsDecorOrange
+261:ElegantChestBlue  262:ElegantChestPurple
+265:FlyTrapAqua  266:FlyTrapPurple
+505:flagGermany  506:flagGermany
+864:PetJellyfish  894:PetJellyfish
+2035:ZanyMat  2037:ZanyMat
+2960:2017Wreath  2961:2017Wreath
+3112:PhantomSprinkler  3114:PhantomSprinkler
+3136:PetFalcon  3994:PetFalcon
+3288:BunnyWallSticker  3290:PinkBunnyWallSticker
+4609:GoldEcoPlaque  4610:SilverEcoPlaque
+4987:GiantRedCheckersPiece  4988:GiantBlackCheckersPiece
+5528:PinkEggBasket  5529:PurpleEggBasket
+5915:GreenMushrooms  5916:PurpleMushrooms
+67 groups
+
+--- ungrouped items right next to a group (possible missing variants) ---
+37:Crystals2DecorBlue  <-  35:PhantomFlowerBarrel  36:CandleLampPink  38:windMill  40:CaveCrystals
+41:AlphaStoneGreen  <-  40:CaveCrystals  42:ExplorerCrate  43:PhantomPipe  55:BookShelfWavyRare  58:Brazier  59:FloorLamp2
+50:CurvedChestPink  <-  48:StoneCarvedCouch  49:StoneCarvedOven  52:DanceBall
+53:StoneCarvedTable  <-  52:DanceBall  54:StoneCarvedToolBench  55:BookShelfWavyRare  2163:SquareStonePlanter  2164:LargeStonePlanter  2166:ToyLlama  2167:FancyStoneTable
+56:FirepotGreen  <-  54:StoneCarvedToolBench  55:BookShelfWavyRare  58:Brazier
+67:HeartCouchGreen  <-  65:Globe  66:MusMeetCosmo
+78:Jar4Blue  <-  81:LargeTV
+82:LavaLampGreen  <-  81:LargeTV  85:MagicLamp
+86:MiniTreeGreen  <-  85:MagicLamp  89:MiraStatue
+90:PirateChestAqua  <-  89:MiraStatue
+93:PotGreen  <-  96:PottedPlants2  97:PottedPlants
+98:Pottery1Green  <-  96:PottedPlants2  97:PottedPlants
+142:SleepingMatGreen  <-  145:SmallStage
+146:SpeakersGreen  <-  145:SmallStage
+161:TeapotBlue  <-  164:Telescope
+165:TrainGreen  <-  164:Telescope  168:Trophie1
+169:VisitorCounterBlue  <-  168:Trophie1
+172:AbstractPaintingGreen  <-  175:Amethyst  176:CandleSconce
+183:HeartLeafBlue  <-  181:Flag  182:GroupPortrait  186:Jade  187:KoalaBanner
+190:MaskLargeAqua  <-  188:KoalaFrame  189:Map
+196:MaskTallAqua  <-  199:MiraPoem  200:MonkeyBanner
+205:PaintingMediumGreen  <-  203:MoviePoster2  204:MoviePoster3  208:PalmChangePicture  209:PandaBanner
+224:SwordnShieldBlue  <-  222:ShaamanWolf  223:SubscriberPlaque
+227:ThreeSmallPaintingsBlue  <-  230:REUSE  231:TigerFrame  328:CheckersOrange  329:DancePink
+239:AnimalStatueAqua  <-  237:WolfFrame  238:ZiosArt
+243:BabyPalmAqua  <-  245:BongoDrumBlue  246:BongoDrumsPink
+247:Cactus2Blue  <-  245:BongoDrumBlue  246:BongoDrumsPink
+505:flagGermany  <-  503:flagCanada  504:flagChina  507:flagGreece  508:flagHungary
+864:PetJellyfish  <-  862:PetSeahorse  863:PetAnglerFish  865:MusDeepBlue  866:MusLuckyParty  892:ColumnWithAmphora  893:PottedPlant  895:ArcHotCocoa  896:HorseShoe
+2035:ZanyMat  <-  2033:WackyTable  2034:SillyChair  2036:PhantomMat  2038:BananaPeel  2039:WarpedLamp
+2960:2017Wreath  <-  2958:JadeRoosterStatue  2959:Banner2017  2962:PaperRoosterLantern  2963:RoosterBalloons
+3112:PhantomSprinkler  <-  3110:SpringPhantomHammock  3111:SpringPhantomFountain  3113:PetChick  3115:CupcakeHut (not offered)  3116:DonutHut (not offered)
+3136:PetFalcon  <-  3134:LynxPillowPet  3135:LynxDreamLite  3137:PetCrocodile  3138:AquaticSofa  3992:StacksOfValentineCardsArchway  3993:MyItemShop (not offered)  3995:LeprechaunTikiTorch  3996:LuckyCloverStreamer
+3288:BunnyWallSticker  <-  3286:WolfWallSticker  3287:KoalaWallSticker  3289:RainbowPonyWallSticker  3291:OctopusArchway  3292:PetKoala
+4609:GoldEcoPlaque  <-  4607:AlienTree  4608:AlienPlants  4611:WoodEcoPlaque  4612:SidewalkChalkArt
+4987:GiantRedCheckersPiece  <-  4985:RoyalCrystalCarriage  4986:GiantCheckersBoard  4989:PineappleChair  4990:Rainbowheartcool27sAJNeonSign
+5528:PinkEggBasket  <-  5526:DaisySteppingStones  5527:DecoratedEggOnDisplay  5530:SpringFlowerCart  5531:FlowerEggOnDisplay
+5915:GreenMushrooms  <-  5913:PhantomCrossbonesGravestone  5914:OrangeMushroom  5917:PetSizedPortal  5918:GhostlyPhantomRug

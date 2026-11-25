@@ -1,0 +1,64 @@
+diff --git a/swf-src/ItemWindowToggle.as b/swf-src/ItemWindowToggle.as
+index 18389fa..9908deb 100644
+--- a/swf-src/ItemWindowToggle.as
++++ b/swf-src/ItemWindowToggle.as
+@@ -19,7 +19,6 @@ package gui.itemWindows
+    import gui.GuiManager;
+    import gui.MySettings;
+    import gui.ServerSelector;
+-   import loadProgress.LoadProgress;
+    import localization.LocalizationManager;
+    import room.RoomManagerWorld;
+    
+@@ -189,9 +188,6 @@ package gui.itemWindows
+             case "customArt":
+                showCustomArt();
+                break;
+-            case "loadScreen":
+-               showLoadScreen();
+-               break;
+             case "wasd":
+                showWasd();
+                break;
+@@ -496,13 +492,6 @@ package gui.itemWindows
+          _window.labelTxtCont.labelTxt.text = AJClient.customArtOn() ? "Custom pictures: shown" : "Custom pictures: hidden";
+       }
+       
+-      // "Loading screen": the game's art, or the older art
+-      // (LoadProgress.oldScreenOn), kept on this computer
+-      private function showLoadScreen() : void
+-      {
+-         showChoice(LoadProgress.oldScreenOn() ? "Loading screen: old" : "Loading screen: new",LoadProgress.oldScreenOn() ? "Use new" : "Use old");
+-      }
+-
+       private function setCustomArt(param1:Boolean) : void
+       {
+          gMainFrame.userInfo.userVarCache.updateUserVar(9006,param1 ? 0 : 1);
+@@ -738,10 +727,6 @@ package gui.itemWindows
+                case "customArt":
+                   setCustomArt(!AJClient.customArtOn());
+                   break;
+-               case "loadScreen":
+-                  LoadProgress.setOldScreen(!LoadProgress.oldScreenOn());
+-                  showLoadScreen();
+-                  break;
+                case "wasd":
+                   setWasd(!AJClient.wasdOn());
+                   break;
+diff --git a/swf-src/MySettings.as b/swf-src/MySettings.as
+index c7551f5..a63eb68 100644
+--- a/swf-src/MySettings.as
++++ b/swf-src/MySettings.as
+@@ -229,12 +229,6 @@ package gui
+             "type":TOGGLE_TYPE_JOIN,
+             "frame":"customArt",
+             "iconFrame":"redeemCode"
+-         },{
+-            // the older loading screen art, or the game's
+-            // (LoadProgress.oldScreenOn)
+-            "type":TOGGLE_TYPE_JOIN,
+-            "frame":"loadScreen",
+-            "iconFrame":"world"
+          },{
+             "type":TOGGLE_TYPE_JOIN,
+             "frame":"redeemCode",
